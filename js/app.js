@@ -76,9 +76,15 @@ function renderNotifyHint() {
   notifyHintEl.hidden = status !== 'denied' && status !== 'unsupported';
 }
 
+let footerDayKey = null; // 页脚已渲染的自然日（缓存：未换日不重读 storage，避免每 250ms JSON.parse）
+let todayPomodoros = 0; // 当前自然日番茄数（页脚桶缓存，供主按钮文案 Ruling #9）
+
 function renderFooter() {
   // N/duration 取当前自然日 dayKey(Date.now()) 对应的桶
-  const day = storage.load().days[dayKey(Date.now())] ?? { pomodoros: 0, studySeconds: 0 };
+  const key = dayKey(Date.now());
+  const day = storage.load().days[key] ?? { pomodoros: 0, studySeconds: 0 };
+  footerDayKey = key;
+  todayPomodoros = day.pomodoros;
   const duration = formatDuration(day.studySeconds * 1000);
   todayCountEl.textContent = String(day.pomodoros);
   todayTimeEl.textContent = duration;
@@ -86,6 +92,8 @@ function renderFooter() {
 }
 
 function render() {
+  if (footerDayKey !== dayKey(Date.now())) renderFooter(); // 跨午夜换日才重读，页脚不显示昨日桶
+
   phaseLabelEl.textContent = phaseText();
   timeEl.textContent = formatClock(timer.remainingMs());
 
@@ -97,7 +105,8 @@ function render() {
   roundDotsEl.setAttribute('aria-label', `第 ${done}/4 轮`);
 
   startBtn.disabled = timer.state !== 'ready'; // 仅 ready 可点
-  startBtn.textContent = done > 0 ? '开始下一个番茄' : '开始番茄';
+  // Ruling #9：completedInRound > 0 或 今日番茄数 > 0 → 开始下一个番茄；新一天首个番茄前 → 开始番茄
+  startBtn.textContent = done > 0 || todayPomodoros > 0 ? '开始下一个番茄' : '开始番茄';
   pauseBtn.disabled = timer.state !== 'working' && timer.state !== 'paused';
   pauseBtn.textContent = timer.state === 'paused' ? '恢复' : '暂停';
 
@@ -175,8 +184,7 @@ workInput.value = String(settings.workMin);
 shortAdjInput.value = String(settings.shortAdj);
 longAdjInput.value = String(settings.longAdj);
 if (!storage.isPersistent) storageWarningEl.hidden = false;
-render();
-renderFooter();
+render(); // 含页脚（footerDayKey 为空 → 首次即读今日桶）
 setInterval(tick, 250);
 document.addEventListener('visibilitychange', tick);
 window.addEventListener('focus', tick);
