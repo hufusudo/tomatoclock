@@ -23,9 +23,14 @@ export function createNotifier({ NotificationImpl = globalThis.Notification } = 
     if (!supported || requested || status !== 'default') return status;
 
     requested = true;
-    const result = await NotificationImpl.requestPermission();
-    // 'granted'|'denied' 照抄；'dismissed' 等其余值视为仍未授权。
-    status = result === 'granted' || result === 'denied' ? result : 'default';
+    try {
+      const result = await NotificationImpl.requestPermission();
+      // 'granted'|'denied' 照抄；'dismissed' 等其余值视为仍未授权。
+      status = result === 'granted' || result === 'denied' ? result : 'default';
+    } catch {
+      // 底层抛错/拒绝：不外溢异常，按未授权降级（与 notify() 的 catch 策略一致）。
+      status = 'default';
+    }
     return status;
   }
 
