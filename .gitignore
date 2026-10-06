@@ -1,0 +1,8 @@
+# 本地会话产物（可视化脑暴样稿，不入库）
+.superpowers/
+
+# 依赖
+node_modules/
+
+# 系统
+.DS_Store
