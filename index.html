@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TomatoClock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <p id="storage-warning" hidden>浏览器存储不可用，本次数据不会保存。</p>
+
+  <main class="clock">
+    <p id="phase-label">准备开始</p>
+    <div id="time">50:00</div>
+    <div id="round-dots" role="img" aria-label="轮次进度">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
+
+    <section class="settings" aria-label="设置">
+      <div class="settings-row">
+        <label for="work-input">工作时长（分钟）</label>
+        <input id="work-input" type="number" min="1" max="180" step="1" value="50">
+        <label for="short-adj-input">短休微调（分钟）</label>
+        <input id="short-adj-input" type="number" min="-5" max="5" step="1" value="0">
+        <label for="long-adj-input">长休微调（分钟）</label>
+        <input id="long-adj-input" type="number" min="-5" max="5" step="1" value="0">
+      </div>
+      <p id="break-preview">短休 10 分 · 长休 30 分</p>
+    </section>
+
+    <div class="controls">
+      <button id="start-btn" type="button">开始番茄</button>
+      <button id="pause-btn" type="button" disabled>暂停</button>
+      <button id="reset-btn" type="button">重置</button>
+    </div>
+
+    <p id="notify-hint" hidden>通知被拒绝或不可用：请在浏览器地址栏的锁形图标里允许通知，才能在后台收到提醒。</p>
+  </main>
+
+  <footer>今日 <span id="today-count">0</span> 个番茄 · 累计 <span id="today-time">0 分</span></footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
