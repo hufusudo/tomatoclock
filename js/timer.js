@@ -55,6 +55,7 @@ export function createTimer({ settings, now = () => Date.now() }) {
     deadline = now() + segmentDurations.workMs;
     segment = 'work';
     state = 'working';
+    return [];
   }
 
   function pause() {
@@ -62,6 +63,7 @@ export function createTimer({ settings, now = () => Date.now() }) {
     pausedRemainingMs = Math.max(0, deadline - now());
     deadline = null;
     state = 'paused';
+    return [];
   }
 
   function resume() {
@@ -69,6 +71,7 @@ export function createTimer({ settings, now = () => Date.now() }) {
     deadline = now() + pausedRemainingMs;
     pausedRemainingMs = null;
     state = 'working';
+    return [];
   }
 
   function reset() {
@@ -78,6 +81,7 @@ export function createTimer({ settings, now = () => Date.now() }) {
     deadline = null;
     pausedRemainingMs = null;
     segmentDurations = null;
+    return [];
   }
 
   function tick() {

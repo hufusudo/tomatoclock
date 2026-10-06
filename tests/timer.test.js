@@ -17,7 +17,7 @@ test('ready→working→break 全路径', () => {
   assert.equal(timer.completedInRound, 0);
   assert.equal(timer.remainingMs(), WORK_MS);
 
-  timer.start();
+  assert.deepStrictEqual(timer.start(), []); // 转换方法同样返回 Event[]
   assert.equal(timer.state, 'working');
   assert.equal(timer.segment, 'work');
   assert.equal(timer.remainingMs(), WORK_MS);
@@ -71,14 +71,14 @@ test('暂停/恢复不漂移', () => {
   timer.start();
 
   t = 1000000;
-  timer.pause();
+  assert.deepStrictEqual(timer.pause(), []);
   assert.equal(timer.state, 'paused');
   assert.equal(timer.segment, 'work');
   assert.equal(timer.remainingMs(), 2000000);
   assert.deepStrictEqual(timer.tick(), []); // paused 态 tick 恒返回 []
 
   t += 3600000; // 暂停了 1 小时
-  timer.resume();
+  assert.deepStrictEqual(timer.resume(), []);
   assert.equal(timer.state, 'working');
   assert.equal(timer.remainingMs(), 2000000); // 恢复不漂移
 
@@ -141,7 +141,7 @@ test('重置不回滚轮次且不入账', () => {
 
   timer.start(); // 第 3 轮中途
   t += 1000000;
-  timer.reset();
+  assert.deepStrictEqual(timer.reset(), []); // 无事件
 
   assert.equal(timer.state, 'ready');
   assert.equal(timer.segment, null);
