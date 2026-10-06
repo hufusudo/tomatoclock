@@ -280,7 +280,7 @@ Expected: 3 个测试文件全绿（timer/storage/celebration 共 ≥20 用例�
 - [ ] **Step 4: 记录决策进 memlog**
 
 ```bash
-uv run ./_bmad/scripts/memlog.py append --workspace "_bmad-output/initiative-tomatoclock/brief-tomato-clock" --type decision --text "实施计划获批并执行：celebration 接口落实为 createCelebration(deps)->{play,dismiss}（可注入假可见性）；有效休息时长下限 1 分钟；入账 completedAt=deadline 口径；部署=<用户选定>。"
+uv run ./_bmad/scripts/memlog.py append --workspace "_bmad-output/initiative-tomatoclock/brief-tomato-clock" --type decision --text "实施计划获批并执行：celebration 接口落实为 createCelebration(deps)->{play,dismiss}（可注入假可见性）；有效休息时长下限 1 分钟；入账 completedAt=deadline 口径；部署=GitHub Pages。"
 ```
 
 - [ ] **Step 5: 提交**
@@ -290,10 +290,9 @@ git add js/app.js index.html
 git commit -m "feat: app.js 组装与到点行为链（事件入账、通知、补放、设置闸门、今日统计）"
 ```
 
-### Task 7: 部署（选择器 = 用户在计划批准时回答，回答后本任务只保留被选分支）
+### Task 7: 部署（已定：GitHub Pages）
 
-- [ ] **Step 1（分支 A：Netlify）**：`https://app.netlify.com/drop` 拖拽仓库目录上传 → 拿到 `https://<site>.netlify.app`
-- [ ] **Step 1（分支 B：GitHub Pages）**：建 GitHub 仓库推送后在 Settings → Pages 选 `main` 根目录 → 拿到 `https://<user>.github.io/<repo>`
+- [ ] **Step 1**：建 GitHub 仓库并推送，Settings → Pages 选 `main` 根目录 → 拿到 `https://<user>.github.io/<repo>`（推送方式若需鉴权，与用户当场确认凭证）
 - [ ] **Step 2: 线上验收**：线上地址允许通知 → 重跑 Task 6 Step 3 的第 3、5、6 条（后台通知、数据持久、拒绝权限）——静态托管必须是 HTTPS（两者都满足）
 - [ ] **Step 3: 提交（如产生部署配置文件）**
 
