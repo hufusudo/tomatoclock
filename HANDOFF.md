@@ -2,6 +2,7 @@
 
 > **新会话请从这里开始。** 本文是唯一入口，按 §7 的顺序执行即可无缝续上。
 > 最后更新：2026-10-06 · 仓库根：`/home/hf/项目/TomatoClock`
+> **⚠️ 状态快照：v1 已实现并部署上线（2026-10-06）**，§6/§7 的流程门禁与操作清单仅作历史记录；后续工作（真实动画接续给其他 AI、人工验收遗留项）见 §2 与 memlog。
 
 ## 1. 项目一句话
 
@@ -13,9 +14,9 @@
 |---|---|
 | 产品 brief | ✅ `status: final`（16+ 条决策全在 `.memlog.md`） |
 | 设计 spec | ✅ 已写盘、自审 4 处修复、**用户已过目未提修改**（2026-10-06）；若新会话发现要改，先改 spec 再动代码 |
-| 实施计划 | ❌ **未写——这是新会话的第一步**（见 §7） |
-| 产品代码 | ❌ 零行。仓库里只有文档与 BMad 工作区 |
-| git | ✅ 已初始化，HEAD = spec 提交；`_bmad/custom/*.user.toml` 与 `.superpowers/` 已被忽略 |
+| 实施计划 | ✅ `docs/superpowers/plans/2026-10-06-tomatoclock.md`（subagent-driven 执行完毕，含最终审阅与修复波） |
+| 产品代码 | ✅ 已完成并部署：`index.html`+`style.css`+`js/`5 模块+`tests/`27 用例；线上 `https://hufusudo.github.io/tomatoclock/`（GitHub Pages） |
+| git | ✅ `main` = `b9116d0`（已推 GitHub `hufusudo/tomatoclock`）；feature 分支已合并删除 |
 
 ## 3. 关键文件路径（均相对仓库根）
 
