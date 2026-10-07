@@ -48,6 +48,18 @@ test('single-instance lock uses the selected isolated profile, not default user 
  e.app.setPath=(name,value)=>{if(name==='userData')profile=value;};e.app.requestSingleInstanceLock=()=>{assert.equal(profile,path.join(dir,'electron'));return true;};
  const application=await createDesktopApplication({electron:e,dataDir:dir,htmlPath:path.resolve('index.html')});application.forceClose();
 });
+test('startup update runs after instance lock and before database; accepted update creates no timer window',async t=>{
+ const e=fakeElectron(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-update-hook-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let ready=false,locked=false,checked=false;
+ e.app.requestSingleInstanceLock=()=>{locked=true;return true;};e.app.whenReady=async()=>{ready=true;};
+ const result=await createDesktopApplication({electron:e,dataDir:dir,beforeOpen:async()=>{assert.ok(ready&&locked);checked=true;return true;},openDatabaseImpl:()=>{throw new Error('must not open database');}});
+ assert.ok(checked);assert.equal(result.window,null);
+ e.app.requestSingleInstanceLock=()=>false;await createDesktopApplication({electron:e,dataDir:dir,beforeOpen:()=>{throw new Error('second process must not update');}});
+});
+test('an unavailable database is never acknowledged as a healthy update',async t=>{
+ const e=fakeElectron(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-health-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let acknowledged=false;
+ const a=await createDesktopApplication({electron:e,dataDir:dir,openDatabaseImpl:()=>{throw new Error('database unavailable');},onStarted:()=>{acknowledged=true;}});
+ assert.equal(acknowledged,false);a.forceClose();
+});
 test('startup path failure shows a native error after ready, preserves path and creates no replacement database',async t=>{
  const {startDesktopApplication}=require('../desktop/application.cjs');const e=fakeElectron();const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-startup-error-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const blocked=path.join(dir,'blocked');fs.writeFileSync(blocked,'keep');const order=[],dialogs=[];let exitCode;
