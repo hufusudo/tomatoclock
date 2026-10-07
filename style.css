@@ -206,3 +206,31 @@ footer {
   color: var(--muted);
   border-top: 1px solid var(--line);
 }
+
+/* Desktop records share the quiet typography and spacing of the timer. */
+[hidden] { display: none !important; }
+.app-nav { width:100%;max-width:46rem;display:flex;justify-content:space-between;align-items:center;padding:1rem; }
+.brand { font-size:.9rem;color:var(--muted); }
+.app-nav button,.records button,#retry-save-btn { font:inherit;font-size:.9rem;border:1px solid var(--line);border-radius:4px;padding:.45rem .8rem;background:#fff;color:var(--fg);cursor:pointer; }
+.app-nav button:hover,.records button:hover:not(:disabled) { border-color:var(--fg); }
+.app-nav button:focus-visible,.records button:focus-visible,#retry-save-btn:focus-visible { outline:2px solid var(--accent);outline-offset:3px; }
+.records { width:100%;max-width:46rem;padding:2rem 1rem;flex:1;text-align:left; }
+.records-heading { display:flex;justify-content:space-between;align-items:center;gap:1rem; }
+.records h1 { font-size:1.7rem;margin:0;font-weight:600; }
+.records-description { margin:.5rem 0 1.5rem;color:var(--muted);font-size:.9rem; }
+.records-tools { display:flex;gap:.6rem;margin-bottom:1rem; }
+.records-table { overflow-x:auto; }
+.records table { border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums; }
+.records th { font-size:.85rem;font-weight:500;color:var(--muted);padding:.75rem;border-bottom:1px solid var(--line); }
+.records td { padding:.7rem .75rem;border-bottom:1px solid #e8e8e4; }
+.records th:not(:first-child),.records td:not(:first-child) { text-align:right; }
+.records td.records-message { text-align:center;padding:3rem 1rem;color:var(--muted); }
+.records-pages { display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:1rem; }
+#records-status { font-size:.85rem;color:var(--muted);margin:0;text-align:center; }
+.records button:disabled { opacity:.45;cursor:default; }
+#import-preview { padding:1rem;margin:1rem 0;background:#edf3ed;border-left:3px solid #3f7462; }
+#import-summary { margin:0 0 .5rem; }
+.import-note { color:var(--muted);font-size:.85rem; }
+#import-confirm { background:#263e36;color:#fff; }
+.all-study { display:inline-block;margin-left:1.5rem; }
+#retry-save-btn { margin:.5rem 1rem;background:var(--accent);color:#fff; }

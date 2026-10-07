@@ -10,7 +10,9 @@
 <body>
   <p id="storage-warning" hidden>浏览器存储不可用，本次数据不会保存。</p>
 
-  <main class="clock">
+  <nav class="app-nav" aria-label="应用导航"><span class="brand">🍅 TomatoClock</span><button id="records-toggle" type="button">学习记录</button></nav>
+
+  <main class="clock" id="clock-view">
     <p id="phase-label">准备开始</p>
     <div id="time">50:00</div>
     <div id="round-dots" role="img" aria-label="轮次进度">
@@ -41,7 +43,16 @@
     <p id="notify-hint" hidden>通知被拒绝或不可用：请在浏览器地址栏的锁形图标里允许通知，才能在后台收到提醒。</p>
   </main>
 
-  <footer>今日 <span id="today-count">0</span> 个番茄 · 累计 <span id="today-time">0 分</span></footer>
+  <section id="records-view" class="records" hidden aria-labelledby="records-title">
+    <div class="records-heading"><h1 id="records-title">学习记录</h1><button id="records-back" type="button">回到计时</button></div>
+    <p class="records-description">每个完成的番茄都会留下记录。</p>
+    <div class="records-tools"><button id="legacy-import-btn" type="button" hidden>导入旧记录</button><button id="legacy-export-btn" type="button" hidden>导出学习记录</button></div>
+    <div id="import-preview" hidden><p id="import-summary"></p><p class="import-note">同一来源、同一天的旧记录将替换；桌面版记录保留。</p><button id="import-confirm" type="button">确认导入</button><button id="import-cancel" type="button">取消</button></div>
+    <div class="records-table"><table><thead><tr><th scope="col">日期</th><th scope="col">番茄数</th><th scope="col">学习时长</th></tr></thead><tbody id="records-body"></tbody></table></div>
+    <div class="records-pages"><button id="records-prev" type="button">上一页</button><p id="records-status" role="status"></p><button id="records-next" type="button">下一页</button></div>
+  </section>
+  <button id="retry-save-btn" type="button" hidden>重试保存</button>
+  <footer>今日 <span id="today-count">0</span> 个番茄 · 累计 <span id="today-time">0 分</span><span class="all-study">历史累计 <span id="all-time">0 分</span></span></footer>
 
   <script type="module" src="js/app.js"></script>
 </body>

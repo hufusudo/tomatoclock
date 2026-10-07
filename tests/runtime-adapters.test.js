@@ -15,3 +15,9 @@ test('desktop adapter unwraps errors and native window visibility, cancels subsc
  assert.equal(runtime.isVisible(),true);listener(false);assert.equal(runtime.isVisible(),false);assert.ok(changes>=1);stop();assert.equal(unsubscribed,true);
  await assert.rejects(runtime.records.getSettings(),/database unavailable/);
 });
+test('web export contains only its normalized days/settings and keeps original records',async()=>{
+ const storage={isPersistent:true,load:()=>({days:{'2026-10-07':{pomodoros:2,studySeconds:4500}},settings:{workMin:50,shortAdj:0,longAdj:0}})};
+ const r=createRuntime({storage,notifier:{},document:{visibilityState:'visible'}});
+ assert.deepEqual(JSON.parse(r.legacy.exportJson()),{days:{'2026-10-07':{pomodoros:2,studySeconds:4500}},settings:{workMin:50,shortAdj:0,longAdj:0}});
+ assert.equal((await r.records.getSummary('2026-10-07')).today.pomodoros,2);
+});

@@ -32,3 +32,19 @@ test('SQLite abort in the middle of import rolls back earlier rows',async t=>{
  assert.throws(()=>db.importLegacyDays([{day:'2026-10-08',pomodoros:1,studySeconds:60},{day:'2026-10-09',pomodoros:1,studySeconds:60}]),/simulated write failure/);
  assert.deepEqual(db.getSummary('2026-10-08').all,{pomodoros:0,studySeconds:0});
 });
+test('IPC import is read-only until confirmation, validates size and freezes preview data',async t=>{
+ const {registerIpc}=require('../desktop/ipc.cjs'),{FakeWindow,fakeElectron,source}=require('./helpers/desktop.cjs');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-preview-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const db=await openDatabase({filePath:path.join(dir,'learning.sqlite')});t.after(()=>db.close());
+ const file=path.join(dir,'legacy.json'),e=fakeElectron(),window=new FakeWindow({});
+ fs.writeFileSync(file,raw({'2026-10-07':{pomodoros:2,studySeconds:4500}}));
+ const dispose=registerIpc({ipcMain:e.ipcMain,window,db,dialog:e.dialog,notify:()=>true});t.after(dispose);
+ const preview=e.handlers.get('tc:previewLegacyImport'),commit=e.handlers.get('tc:commitLegacyImport');
+ assert.equal((await preview(source(window))).value,null);assert.equal(db.getSummary('2026-10-07').all.pomodoros,0);
+ e.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});
+ const first=await preview(source(window));assert.equal(first.value.summary.studySeconds,4500);assert.equal(db.getSummary('2026-10-07').all.pomodoros,0);
+ const second=await preview(source(window));assert.equal((await commit(source(window),first.value.token)).ok,false);
+ fs.writeFileSync(file,raw({'2026-10-07':{pomodoros:999,studySeconds:999}}));
+ assert.equal((await commit(source(window),second.value.token)).ok,true);assert.deepEqual(db.getSummary('2026-10-07').all,{pomodoros:2,studySeconds:4500});
+ fs.writeFileSync(file,'x'.repeat(1024*1024+1));assert.equal((await preview(source(window))).ok,false);assert.equal(db.getSummary('2026-10-07').all.pomodoros,2);
+});
