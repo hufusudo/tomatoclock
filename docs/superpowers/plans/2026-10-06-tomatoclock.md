@@ -27,7 +27,7 @@
 | 位置 | 文案 |
 |---|---|
 | 相位标签 | `准备开始` / `专注中` / `已暂停` / `短休` / `长休` |
-| 主按钮 | READY 且 `completedInRound === 0` → `开始番茄`；READY 且 `completedInRound > 0` → `开始下一个番茄` |
+| 主按钮 | READY 且（`completedInRound > 0` 或今日番茄数 > 0）→ `开始下一个番茄`；否则（新一天首个番茄）→ `开始番茄` |
 | 次按钮 | WORKING → `暂停`；PAUSED → `恢复`；READY/BREAK → 禁用 |
 | 重置按钮 | `重置`（任意态可用） |
 | 页脚 | `今日 {N} 个番茄 · 累计 {duration}` |
@@ -74,7 +74,7 @@
   - `break 归零回 ready 且不自动开工`：休息段过期 `tick()` → `[{type:'break-done'}]`，`state === 'ready'`；随后任意 `tick()` 返回 `[]`
   - `重置不回滚轮次且不入账`：2 次归零后中途 `reset()` → `completedInRound === 2`、`state === 'ready'`、`tick()` 无 `work-done`
   - `sanitizeSettings 钳制边界`：`{workMin: 0}`→1、`{workMin: 181}`→180、`{workMin: 25.7}`→26、`{workMin: 'abc'}`→50、`{shortAdj: 99, longAdj: -99}`→5/-5
-  - `有效休息 1 分钟下限与 ±5`：`{workMin: 1, shortAdj: -5}` → `shortBreakMs === 60000`；`{workMin: 25, shortAdj: 5}` → 480000；`{workMin: 25, longAdj: -5}` → 600000
+  - `有效休息 1 分钟下限与 ±5`：`{workMin: 1, shortAdj: -5}` → `shortBreakMs === 60000`；`{workMin: 25, shortAdj: 5}` → 600000；`{workMin: 25, longAdj: -5}` → 600000
   - `WORKING 中 setSettings 抛错`
 - [ ] **Step 2: 跑测试确认失败**
 
@@ -257,7 +257,7 @@ git commit -m "feat: 页面骨架与布局 B 样式（巨大倒计时、四点�
   - `'break-done'` → `notify({title: '休息结束', body: '该开工了：点“开始下一个番茄”。'})` + `celebration.play('break-done')`
 - 设置：三个输入框 `change` 时 `timer.setSettings(...)` + `storage.saveSettings(...)` + 重渲染 `#break-preview`（用 `effectiveDurations` + `formatDuration`）；**非 ready 态输入框 `disabled`**（每次渲染同步）
 - 通知权限：`#start-btn` 点击（用户手势）内调 `requestPermission()`，仅首次真正请求；`permissionStatus()` 为 `'denied'`/`'unsupported'` → 显示 `#notify-hint`；被拒/不支持时其余功能完全不受影响
-- 按钮态：按文案表渲染；`#start-btn` 仅 ready 可点，`#pause-btn` 仅 working/paused 可点
+- 按钮态：按文案表渲染；`#start-btn` 仅 ready 可点（文案：ready 且 `completedInRound > 0` 或今日番茄数 > 0 → `开始下一个番茄`，否则 `开始番茄`），`#pause-btn` 仅 working/paused 可点
 - 四点：`completedInRound` 点亮 `.dot.is-done`
 - 页面关闭不落盘（不写 `beforeunload`）——进行中番茄自然作废
 
