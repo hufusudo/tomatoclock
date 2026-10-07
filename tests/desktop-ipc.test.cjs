@@ -1,0 +1,18 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const {registerIpc}=require('../desktop/ipc.cjs');const {openDatabase}=require('../desktop/database.cjs');
+const {FakeWindow,fakeElectron,source}=require('./helpers/desktop.cjs');
+test('IPC authorizes only the main window frame and uses the real database',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-ipc-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const db=await openDatabase({filePath:path.join(dir,'learning.sqlite')});t.after(()=>db.close());
+ const e=fakeElectron(),window=new FakeWindow({});const dispose=registerIpc({ipcMain:e.ipcMain,window,db,dialog:e.dialog,notify:()=>true});t.after(dispose);
+ const record={id:'00000000-0000-4000-8000-000000000001',completedAt:Date.parse('2026-10-07T10:00:00'),workMs:1500000};
+ const handler=e.handlers.get('tc:saveCompletedPomodoro');
+ assert.equal((await handler({sender:{},senderFrame:{}},record)).ok,false);
+ assert.equal((await handler({...source(window),senderFrame:{}},record)).ok,false);
+ assert.equal(db.getSummary('2026-10-07').all.pomodoros,0);
+ assert.equal((await handler(source(window),record)).ok,true);
+ assert.deepEqual(db.getSummary('2026-10-07').today,{pomodoros:1,studySeconds:1500});
+ assert.equal((await e.handlers.get('tc:listDaily')(source(window),{offset:-1,limit:30})).ok,false);
+ assert.equal(e.handlers.has('tc:query'),false);
+});
