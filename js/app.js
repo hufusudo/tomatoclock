@@ -1,225 +1,51 @@
-// TomatoClock UI 总装：只做组装与事件分发——读 DOM、把事件接到 timer/storage/notify/celebration。
-// 计时/存储/通知/演出逻辑一律留在各自模块；进行中番茄不落盘、不注册 beforeunload（关页即作废）。
-import { sanitizeSettings, effectiveDurations, createTimer } from './timer.js';
-import { createStorage, dayKey } from './storage.js';
-import { createNotifier } from './notify.js';
-import { createCelebration } from './celebration.js';
-
-// ---- Ruling #7 格式化 ----
-// formatClock：MM:SS，秒向上取整（归零才显示 00:00）；分钟不进位到小时（180 分显示 180:00）
-function formatClock(ms) {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+import {effectiveDurations,createTimer} from './timer.js';
+import {createStorage} from './storage.js';import {createNotifier} from './notify.js';import {createCelebration} from './celebration.js';
+import {createRuntime} from './runtime-adapters.js';import {createController} from './controller.js';import {formatClock,formatDuration} from './format.js';
+const $=id=>document.getElementById(id);
+const inputs=[$('work-input'),$('short-adj-input'),$('long-adj-input')];
+const timer=createTimer({settings:{workMin:50,shortAdj:0,longAdj:0}});
+const runtime=createRuntime(window.tomatoDesktop?{desktopApi:window.tomatoDesktop}:{storage:createStorage(),notifier:createNotifier(),document});
+const celebration=createCelebration({isVisible:runtime.isVisible,watchVisibility:runtime.watchVisibility,getRemainingMs:()=>timer.remainingMs()});
+let settingSignature='',deadlineTimer=null;
+const controller=createController({timer,records:runtime.records,notifier:runtime.notifier,celebration,onChange:render});
+function fillSettings(settings){inputs.forEach((input,index)=>{input.value=String(settings[['workMin','shortAdj','longAdj'][index]]);});settingSignature=JSON.stringify(settings);}
+function render(s){
+ $('phase-label').textContent=s.state==='break'?(s.segment==='long-break'?'长休':'短休'):{ready:'准备开始',working:'专注中',paused:'已暂停'}[s.state];
+ $('time').textContent=formatClock(s.remainingMs);
+ const durations=effectiveDurations(s.settings);
+ $('break-preview').textContent=`短休 ${formatDuration(durations.shortBreakMs)} · 长休 ${formatDuration(durations.longBreakMs)}`;
+ const dots=Array.from($('round-dots').querySelectorAll('.dot'));dots.forEach((dot,index)=>dot.classList.toggle('is-done',index<s.completedInRound));
+ $('round-dots').setAttribute('aria-label',`第 ${s.completedInRound}/4 轮`);
+ $('start-btn').disabled=!s.canStart;
+ $('start-btn').textContent=s.completedInRound>0||(s.summary?.today.pomodoros??0)>0?'开始下一个番茄':'开始番茄';
+ $('pause-btn').disabled=!['working','paused'].includes(s.state);$('pause-btn').textContent=s.state==='paused'?'恢复':'暂停';
+ const editable=s.state==='ready'&&!s.saving&&s.pendingCount===0&&s.summary!==null;inputs.forEach(input=>{input.disabled=!editable;});
+ if(settingSignature!==JSON.stringify(s.settings))fillSettings(s.settings);
+ $('today-count').textContent=String(s.summary?.today.pomodoros??0);$('today-time').textContent=formatDuration((s.summary?.today.studySeconds??0)*1000);
+ if($('all-time'))$('all-time').textContent=formatDuration((s.summary?.all.studySeconds??0)*1000);
+ document.querySelector('footer').setAttribute('aria-label','学习统计');
+ const warning=$('storage-warning');warning.hidden=!s.error&&runtime.records.isPersistent;
+ warning.textContent=s.error??'浏览器存储不可用，本次数据不会保存。';
+ if($('retry-save-btn')){$('retry-save-btn').hidden=s.pendingCount===0;$('retry-save-btn').disabled=s.saving;}
+ const status=runtime.notifier.permissionStatus?.()??'granted';$('notify-hint').hidden=!['denied','unsupported'].includes(status);
+ if(window.tomatoDesktop)$('notify-hint').textContent='系统通知暂时不可用，请检查桌面通知设置。';
 }
-
-// formatDuration：<1h → `M 分` 或 `M 分 S 秒`（S=0 省略）；≥1h → `H 小时 M 分`；0 → `0 分`
-function formatDuration(ms) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (totalSeconds < 3600) {
-    return seconds === 0 ? `${minutes} 分` : `${minutes} 分 ${seconds} 秒`;
-  }
-  return `${Math.floor(totalSeconds / 3600)} 小时 ${minutes % 60} 分`;
+function scheduleDeadline(){
+ if(deadlineTimer!==null)clearTimeout(deadlineTimer);deadlineTimer=null;
+ if(['working','break'].includes(timer.state))deadlineTimer=setTimeout(()=>{deadlineTimer=null;tick();},Math.max(0,timer.remainingMs()));
 }
-
-// 页脚固定文案：今日 {N} 个番茄 · 累计 {duration}
-function footerText(n, duration) {
-  return `今日 ${n} 个番茄 · 累计 ${duration}`;
+function tick(){
+ const before=`${timer.state}:${timer.segment}`;const operation=controller.tick();
+ if(before!==`${timer.state}:${timer.segment}`)scheduleDeadline();
+ operation.catch(error=>{ $('storage-warning').hidden=false;$('storage-warning').textContent=`计时处理失败：${error.message}`; });
 }
-
-// ---- DOM 锚点 ----
-const $ = (id) => document.getElementById(id);
-const phaseLabelEl = $('phase-label');
-const timeEl = $('time');
-const roundDotsEl = $('round-dots');
-const dotEls = Array.from(roundDotsEl.querySelectorAll('.dot'));
-const workInput = $('work-input');
-const shortAdjInput = $('short-adj-input');
-const longAdjInput = $('long-adj-input');
-const breakPreviewEl = $('break-preview');
-const startBtn = $('start-btn');
-const pauseBtn = $('pause-btn');
-const resetBtn = $('reset-btn');
-const todayCountEl = $('today-count');
-const todayTimeEl = $('today-time');
-const notifyHintEl = $('notify-hint');
-const storageWarningEl = $('storage-warning');
-const footerEl = document.querySelector('footer');
-
-// ---- 模块组装 ----
-const storage = createStorage();
-const notifier = createNotifier();
-const saved = storage.load(); // 启动读一次：settings 进 timer，今日桶进页脚
-let settings = saved.settings;
-const timer = createTimer({ settings });
-const celebration = createCelebration({
-  isVisible: () => document.visibilityState === 'visible',
-  watchVisibility(onChange) {
-    document.addEventListener('visibilitychange', onChange);
-    return () => document.removeEventListener('visibilitychange', onChange);
-  },
-  getRemainingMs: () => timer.remainingMs(),
+$('start-btn').addEventListener('click',()=>{controller.start();scheduleDeadline();});
+$('pause-btn').addEventListener('click',()=>{if(timer.state==='paused')controller.resume();else controller.pause();scheduleDeadline();});
+$('reset-btn').addEventListener('click',()=>{controller.reset();scheduleDeadline();});
+for(const input of inputs)input.addEventListener('change',async()=>{
+ await controller.saveSettings({workMin:inputs[0].value,shortAdj:inputs[1].value,longAdj:inputs[2].value});fillSettings(controller.getSnapshot().settings);
 });
-
-// ---- 渲染 ----
-function phaseText() {
-  if (timer.state === 'break') return timer.segment === 'long-break' ? '长休' : '短休';
-  return { ready: '准备开始', working: '专注中', paused: '已暂停' }[timer.state];
-}
-
-function renderNotifyHint() {
-  // 被拒 / 不支持才显示；其余功能完全不受影响
-  const status = notifier.permissionStatus();
-  notifyHintEl.hidden = status !== 'denied' && status !== 'unsupported';
-}
-
-let footerDayKey = null; // 页脚已渲染的自然日（缓存：未换日不重读 storage，避免每 250ms JSON.parse）
-let todayPomodoros = 0; // 当前自然日番茄数（页脚桶缓存，供主按钮文案 Ruling #9）
-
-function renderFooter() {
-  // N/duration 取当前自然日 dayKey(Date.now()) 对应的桶
-  const key = dayKey(Date.now());
-  const day = storage.load().days[key] ?? { pomodoros: 0, studySeconds: 0 };
-  footerDayKey = key;
-  todayPomodoros = day.pomodoros;
-  const duration = formatDuration(day.studySeconds * 1000);
-  todayCountEl.textContent = String(day.pomodoros);
-  todayTimeEl.textContent = duration;
-  footerEl.setAttribute('aria-label', footerText(day.pomodoros, duration));
-}
-
-function render() {
-  if (footerDayKey !== dayKey(Date.now())) renderFooter(); // 跨午夜换日才重读，页脚不显示昨日桶
-
-  phaseLabelEl.textContent = phaseText();
-  timeEl.textContent = formatClock(timer.remainingMs());
-
-  const { shortBreakMs, longBreakMs } = effectiveDurations(settings);
-  breakPreviewEl.textContent = `短休 ${formatDuration(shortBreakMs)} · 长休 ${formatDuration(longBreakMs)}`;
-
-  const done = timer.completedInRound;
-  dotEls.forEach((dot, index) => dot.classList.toggle('is-done', index < done));
-  roundDotsEl.setAttribute('aria-label', `第 ${done}/4 轮`);
-
-  startBtn.disabled = timer.state !== 'ready'; // 仅 ready 可点
-  // Ruling #9：completedInRound > 0 或 今日番茄数 > 0 → 开始下一个番茄；新一天首个番茄前 → 开始番茄
-  startBtn.textContent = done > 0 || todayPomodoros > 0 ? '开始下一个番茄' : '开始番茄';
-  pauseBtn.disabled = timer.state !== 'working' && timer.state !== 'paused';
-  pauseBtn.textContent = timer.state === 'paused' ? '恢复' : '暂停';
-
-  const editable = timer.state === 'ready'; // 设置仅 READY 可编辑，每次渲染同步
-  workInput.disabled = !editable;
-  shortAdjInput.disabled = !editable;
-  longAdjInput.disabled = !editable;
-
-  storageWarningEl.hidden = storage.isPersistent; // 含运行期写失败后的内存降级
-  renderNotifyHint();
-}
-
-// ---- 到点行为链（实时与补记同一路径）----
-function handleEvents(events) {
-  // work-done 通知里的短休/长休与时长，取同一次 tick 里随后的 break-started 事件
-  const breakEvent = events.find((event) => event.type === 'break-started');
-  for (const event of events) {
-    if (event.type === 'work-done') {
-      storage.recordPomodoro({ completedAt: event.completedAt, workMs: event.workMs });
-      renderFooter();
-      const kindLabel = breakEvent && breakEvent.kind === 'long' ? '长休' : '短休';
-      const durationText = formatDuration(breakEvent ? breakEvent.durationMs : timer.remainingMs());
-      notifier.notify({ title: '番茄完成 🍅', body: `该休息了：${kindLabel} ${durationText}。` });
-      celebration.dismiss(); // 新阶段替换旧演出，模块内部仍保留重复 play 幂等契约
-      celebration.play('work-done');
-    } else if (event.type === 'break-done') {
-      notifier.notify({ title: '休息结束', body: '该开工了：点“开始下一个番茄”。' });
-      celebration.dismiss();
-      celebration.play('break-done');
-    }
-  }
-}
-
-// ---- deadline 对齐的单次定时器（与 setInterval(250) 并存）----
-// setInterval 只管渲染与兜底；deadline 变化处另排单次 setTimeout，到点即触发同一 tick()，
-// 减轻隐藏标签页被节流时后台通知的延迟（见 spec §9 已知限制）
-let deadlineTimer = null;
-
-function clearDeadlineTimer() {
-  if (deadlineTimer !== null) {
-    clearTimeout(deadlineTimer);
-    deadlineTimer = null;
-  }
-}
-
-function scheduleDeadlineTick() {
-  clearDeadlineTimer(); // 旧定时器先清，防泄漏/防双触发
-  if (timer.state !== 'working' && timer.state !== 'break') return; // 无 deadline（ready/paused）不排
-  deadlineTimer = setTimeout(() => {
-    deadlineTimer = null;
-    tick();
-  }, Math.max(0, timer.remainingMs()));
-}
-
-function tick() {
-  const events = timer.tick();
-  if (events.length > 0) {
-    handleEvents(events);
-    scheduleDeadlineTick(); // deadline 变化：进 break 排新段；break-done 回 ready 则取消
-  }
-  render();
-}
-
-// ---- 事件接线 ----
-startBtn.addEventListener('click', () => {
-  // 权限在用户手势内请求；fire-and-forget（requestPermission 恒 resolve）
-  notifier.requestPermission().then(renderNotifyHint);
-  renderNotifyHint();
-  timer.start();
-  scheduleDeadlineTick(); // 起跑按 deadline 排单次到点定时器
-  render();
-});
-
-pauseBtn.addEventListener('click', () => {
-  if (timer.state === 'working') timer.pause();
-  else if (timer.state === 'paused') timer.resume();
-  scheduleDeadlineTick(); // 暂停取消旧定时器；恢复按新 deadline 重排
-  render();
-});
-
-resetBtn.addEventListener('click', () => {
-  timer.reset();
-  scheduleDeadlineTick(); // 重置取消旧定时器
-  render();
-});
-
-// 设置回填（启动与 change 后同一口径）：三框恒显示钳制后的值
-function fillSettingsInputs() {
-  workInput.value = String(settings.workMin);
-  shortAdjInput.value = String(settings.shortAdj);
-  longAdjInput.value = String(settings.longAdj);
-}
-
-function onSettingsChange() {
-  if (timer.state !== 'ready') return; // 非 ready 输入框本就 disabled，双保险
-  const next = sanitizeSettings({
-    workMin: workInput.value,
-    shortAdj: shortAdjInput.value,
-    longAdj: longAdjInput.value,
-  });
-  timer.setSettings(next);
-  settings = storage.saveSettings(next); // 写入时机之二
-  fillSettingsInputs(); // 回填钳制后的值（脏值/空值不留在框里）
-  render(); // 重渲染预览与 #time（ready 态显示新工作时长）
-}
-
-workInput.addEventListener('change', onSettingsChange);
-shortAdjInput.addEventListener('change', onSettingsChange);
-longAdjInput.addEventListener('change', onSettingsChange);
-
-// ---- 启动渲染 + tick 循环 ----
-fillSettingsInputs();
-render(); // 含页脚（footerDayKey 为空 → 首次即读今日桶）
-setInterval(tick, 250);
-document.addEventListener('visibilitychange', tick);
-window.addEventListener('focus', tick);
+$('retry-save-btn')?.addEventListener('click',()=>controller.retryPending());
+runtime.onPrepareClose?.(()=>controller.prepareClose());
+render(controller.getSnapshot());controller.init();
+setInterval(tick,250);document.addEventListener('visibilitychange',tick);window.addEventListener('focus',tick);
