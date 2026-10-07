@@ -1,66 +1,71 @@
-# HANDOFF — TomatoClock 开工交接文档
+# TomatoClock 当前维护交接
 
-> **新会话请从这里开始。** 本文是唯一入口，按 §7 的顺序执行即可无缝续上。
-> 最后更新：2026-10-07 · 仓库根：`/home/hf/项目/TomatoClock`
-> **2026-10-07 接续：提醒动画已在本地实现并验收，尚未发布到 GitHub Pages。** 用户批准番茄弹跳、彩屑叶片、伸懒腰/呼吸、流动光晕及更响钟声；修复旧演出遮住新提醒、运行期存储失败不提示。详见 `docs/analysis.md` 顶部更新。
-> **桌面版已实现、审阅、验收并用户级安装：** Electron＋SQLite、每日学习记录、历史累计、关闭窗口退出，原动画保留。成品在 `dist/TomatoClock-linux-x64/`，用户应用菜单名称“番茄钟”；使用与备份见 `README.md`，实际检查与执行取舍见 `docs/desktop-implementation-notes.md`。当前分支 `codex/desktop-app`，不自动发布网页。
-> **本地启动更新已接续实现（0.3.0）：** 启动检查本项目 `dist/updates`，原生“一键更新 / 跳过”，校验、数据库备份、原子切换、真实重启和旧版恢复。以后维护必须运行 `npm run release:local` 才公布新版；不要仅打包后宣称用户可更新。更新逻辑与验收见 `docs/local-update-notes.md`；源目录移动后重新安装以更新绝对路径。数据库位置不变。
-> **⚠️ 状态快照：v1 已实现并部署上线（2026-10-06）**，§6/§7 的流程门禁与操作清单仅作历史记录；后续工作（真实动画接续给其他 AI、人工验收遗留项）见 §2 与 memlog。
-> **👉 下一个 AI 做“完善”工作请读 `docs/analysis.md`（分析与待完善清单，含动画替换契约）**
+最后更新：2026-10-07。先读根目录 `AGENTS.md`；这里是当前状态入口。历史任务已经结束，不重新执行历史设计/计划中的审批清单。
 
-## 1. 项目一句话
+## 当前状态
 
-自用网页番茄钟：只填工作时长，短休（÷5）与长休（×0.6，各 ±5 微调）自动推算，到点以**系统通知**为主路径提醒——因为用户专注时在用 AI，几乎不停留在本页面。数据只存 localStorage，无账号无云端。
+- 项目：本机自用番茄钟，Electron 44.6.0 + better-sqlite3 13.0.3，保留共用网页入口。
+- 当前分支：`codex/desktop-app`；未合并、未推送，不自动发布网页。
+- 正式已安装：0.3.0，用户菜单“番茄钟”。本次 0.3.1 增加安全清理和固定 AI 维护入口，已公布到本地更新源，用户下次启动可一键更新。
+- 已有功能：工作/短休/每四次长休，原生通知、完整提醒动画和钟声，今日/累计时长、每日记录、旧网页 JSON 导入、启动时检查本地更新。
+- 暂未实现：学习时长折线图、托盘、自动在线更新。关闭窗口即退出，最小化继续计时，未完成工作段不入账。
 
-## 2. 当前状态
+## 目录与数据
 
-| 项 | 状态 |
+| 内容 | 位置 |
 |---|---|
-| 产品 brief | ✅ `status: final`（16+ 条决策全在 `.memlog.md`） |
-| 设计 spec | ✅ 已写盘、自审 4 处修复、**用户已过目未提修改**（2026-10-06）；若新会话发现要改，先改 spec 再动代码 |
-| 实施计划 | ✅ `docs/superpowers/plans/2026-10-06-tomatoclock.md`（subagent-driven 执行完毕，含最终审阅与修复波） |
-| 产品代码 | ✅ 已完成并部署：`index.html`+`style.css`+`js/`5 模块+`tests/`27 用例；线上 `https://hufusudo.github.io/tomatoclock/`（GitHub Pages） |
-| git | ✅ `main` = `b9116d0`（已推 GitHub `hufusudo/tomatoclock`）；feature 分支已合并删除 |
+| 源代码 | `/home/hf/项目/TomatoClock` |
+| 最新便携构建 | `dist/TomatoClock-linux-x64` |
+| 本地更新源 | `dist/updates`，最近两份发布 |
+| 用户程序入口 | `~/.local/opt/tomatoclock/start-tomatoclock` |
+| 实际程序 | 安装目录 `versions/<SHA256>/package`，由 `current` 指向 |
+| 固定恢复运行时 | 安装目录 `.bootstrap/runtime`，保留它指向的版本 |
+| 学习数据库 | `~/.local/share/tomatoclock/learning.sqlite`（或 XDG_DATA_HOME 下） |
+| 自动数据库备份 | 同数据目录的 `backups/`；**用户要求全部保留** |
 
-## 3. 关键文件路径（均相对仓库根）
+安装程序与源码、数据库分离。改源码不直接修改已安装程序。移动源码后，程序仍能用，更新源绝对路径需重新安装配置。
 
-| 文件 | 作用 |
+## 代码职责
+
+| 需求 | 优先阅读/修改 |
 |---|---|
-| `docs/superpowers/specs/2026-10-06-tomatoclock-design.md` | **设计 spec——实现照它抄**：状态机 7 条规则、存储 schema、接缝契约、错误处理表、测试策略 |
-| `_bmad-output/initiative-tomatoclock/brief-tomato-clock/brief-tomato-clock.md` | 产品 brief（final）：问题、范围边界、Success Criteria（= 验收清单） |
-| `.../brief-tomato-clock/addendum.md` | 研究速览、6 条被否决备选、行为链推演、技术提示 |
-| `.../brief-tomato-clock/.memlog.md` | 23 条决策/事件审计——**新会话的重要决策继续用它追加**（见 §7 第 4 步） |
-| `.superpowers/brainstorm/` | 可视化脑暴的布局样稿（已 gitignore，供回看） |
+| 计时与工作规则 | `js/timer.js`、`js/controller.js` |
+| 页面与记录展示 | `index.html`、`style.css`、`js/app.js`、`js/records-view.js` |
+| 提醒动画/音效 | `js/celebration.js` |
+| 数据库/导入 | `desktop/database.cjs`、`desktop/legacy-import.cjs` |
+| 桌面生命周期/安全桥接 | `desktop/application.cjs`、`desktop/ipc.cjs`、`desktop/preload.cjs` |
+| 本地发布/复制/更新 | `desktop/releases.cjs`、`desktop/local-update.cjs`、`scripts/publish-local.cjs` |
+| 失败恢复/固定启动器 | `desktop/launch-bootstrap.cjs`、`scripts/install-user.cjs` |
+| 安全清理/维护协调 | `desktop/cleanup.cjs`、`desktop/maintenance-lock.cjs`、`scripts/cleanup.cjs` |
+| 打包 | `scripts/package-linux.cjs` |
 
-## 4. 不可动摇的核心决策（速查，详情看 spec）
+## 必须保留的行为
 
-1. **公式**：短休 = 工作 ÷ 5，长休 = 工作 × 0.6，微调钳制 ±5 分钟；`workMin` 整数 1–180，**仅 READY 态可改**
-2. **一轮 4 个番茄**后进长休；进行中番茄随页面关闭**作废**（不计数不计时）；今日总时长 = 已完成番茄数 × 工作时长
-3. **提醒主路径 = 系统通知**（首次用户手势内请求权限，被拒不重弹）；动画是切回页面后的补放彩蛋（恰好一次，幂等）
-4. **休息结束不自动开工**（防统计造假），必须手动点"开始下一个番茄"
-5. **技术栈**：零构建原生 ES modules——`index.html` + `style.css` + `js/{timer,storage,notify,celebration,app}.js`；`timer.js` 纯逻辑不碰 DOM
-6. **动画接缝**：`celebration.js` 只暴露 `play(phase)` / `dismiss()`，五个可选依赖与 pending/幂等语义冻结；内部已替换为原生 CSS/SVG 全屏演出。新阶段由组装层先 dismiss 旧演出再 play。
-7. **布局 B（极简数字派）**：巨大倒计时数字 + 四点轮次 + 页脚一行今日数据
-8. **范围外（不许顺手加）**：任务清单、统计报表、账号云同步、Web Push 关页提醒、强制锁页、睡眠补休、半截番茄计时、移动端适配
+- 工作整数 1–180 分钟；短休=工作÷5，长休=工作×0.6，微调 ±5 分钟，休息至少 1 分钟；仅准备状态可改设置。
+- 每四个完成工作段长休；总时长是每段完成工作的设定时长相加，暂停和未完成部分不计入。
+- 到期补记最多一段；休息结束必须手动开工。动画保留 pending/幂等及点击/Esc 退出语义。
+- 完成记录 UUID 去重，确认保存后展示统计；失败记录可重试且阻止开始下一段。关闭等待保存，放弃须用户明确选择。
+- Chromium 沙箱、上下文隔离开启，页面没有 Node/SQL/路径访问权限。当前使用已存在的 XWayland，不改系统配置。
+- 更新前有数据库事务文件时暂缓更新；失败保留旧程序。程序恢复不自动覆盖数据库。
+- 更新成功才清理已安装旧版本，保留当前、上一版与固定恢复运行时。无法确认的文件不清理；学习记录、全部备份、手工文件和旧平铺安装保留。
 
-## 5. 环境事实
+## 固定维护流程
 
-- Node v26（`node --test` 零依赖跑测试）、Python 3.14 + uv（BMad 脚本）、git 已装
-- **部署**：免费静态托管，GitHub Pages 与 Netlify 二选一未拍板——取决于用户有无 GitHub 账号，**实施计划阶段问一句再定**
-- BMad 已初始化（`_bmad/`）；`bmad-prd`/`bmad-architecture`/`bmad-review` 等技能**未安装**（本项目体量不需要）
+1. 读当前需求涉及的模块，局部修改，补必要行为测试。
+2. `npm run release:local`：打包 → 全部自动测试 → 公布本地新版 → 清理旧更新包。
+3. UI 或更新改动用对应 GUI 检查，保持临时 XDG 数据目录和沙箱；证据放会话可视化目录。
+4. 更新本文件及已有专题说明，告知用户下次打开可一键更新。不要手改已安装代码或正式数据库。
 
-## 6. 流程门禁（brainstorming HARD-GATE 的状态）
+常用检查：`npm test`；`npm run verify:ui -- --packaged`；`npm run verify:update`。手动清理：先 `npm run cleanup:preview`，再 `npm run cleanup`。不重复安装已有依赖或无理由重复测试。
 
-- ✅ architectural 路径的三道门已过：逐节设计批准 → spec 落盘 → 用户审阅（转向交接）
-- ✅ **下一个且唯一的允许步骤 = `writing-plans` 技能**（brainstorming 的终态规定，不得跳去 TDD/build 等其他实现技能）
-- 计划获批后 → 按计划执行（`executing-plans` 或 `subagent-driven-development`，实现阶段配 `test-driven-development`）
-- 未过批准门之前，**不写任何产品代码、不装产品依赖、不建外部项目**
+## 进一步资料
 
-## 7. 新会话操作清单（按序）
+- 用户使用、备份、更新：`README.md`
+- 更新/清理机制和验收：`docs/local-update-notes.md`
+- 桌面版初次实现与特殊处理：`docs/desktop-implementation-notes.md`
+- 原网页/动画历史分析：`docs/analysis.md`
+- 决策记录：`_bmad-output/initiative-tomatoclock/brief-tomato-clock/.memlog.md`
 
-1. 读本文 → 读 spec（§3 表格顺序）
-2. `git log --oneline` 核对 HEAD；若用户对 spec 有新要求，先改 spec 并说明，再继续
-3. 调用 **`writing-plans`** 技能，基于 spec 出实施计划，交用户批准
-4. 实施中每条重要决策追加进 memlog：
-   `uv run ./_bmad/scripts/memlog.py append --workspace "_bmad-output/initiative-tomatoclock/brief-tomato-clock" --type decision --text "..."`
-5. 完成后用 brief 的 **Success Criteria 当验收清单**（含手工验收：后台通知送达、关闭重开数据不丢）
+历史 spec/plan、BMad 文件只在需要追溯具体决策时读取。最新验证结果记在专题文档，不用遍历旧任务重新发现状态。
+
+本次验证：39 网页/协调 + 43 桌面/更新/清理测试（共 82）通过；已安装 0.3.0 的只读临时副本实测升级到 0.3.1，自动清理旧包，记录/设置/备份保留，沙箱开启。真实更新源清理后保留两份发布，清理预览无额外候选。

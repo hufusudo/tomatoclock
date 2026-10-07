@@ -93,8 +93,8 @@ test('stable launcher recovers when new entry crashes before update code can run
  const electron=fakeElectron();electron.dialog.showMessageBox=async()=>({response:0});electron.app.relaunch=()=>{};electron.app.exit=()=>{};
  const appRoot=path.join(fs.realpathSync(path.join(result.appDir,'current')),'resources/app'),dataDir=path.join(f.root,'data');fs.mkdirSync(dataDir);
  await checkLocalUpdate({electron,appRoot,dataDir});
- const exitCode=await new Promise((resolve,reject)=>{const child=spawn(result.launcher,[],{stdio:'pipe'});child.once('error',reject);child.once('exit',resolve);});
- assert.equal(exitCode,0);assert.equal(fs.readFileSync(output,'utf8'),'old');
+ let stderr='';const exitCode=await new Promise((resolve,reject)=>{const child=spawn(result.launcher,[],{stdio:'pipe'});child.stderr.on('data',chunk=>{stderr+=chunk;});child.once('error',reject);child.once('exit',resolve);});
+ assert.equal(exitCode,0,stderr);assert.equal(fs.readFileSync(output,'utf8'),'old');
  assert.equal(fs.readFileSync(path.join(result.appDir,'current/resources/app/desktop/main.cjs'),'utf8'),'old');
  assert.equal(fs.existsSync(path.join(result.appDir,'.pending-update.json')),false);
 });

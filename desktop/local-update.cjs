@@ -1,5 +1,6 @@
 const fs=require('node:fs');const path=require('node:path');
 const {randomUUID}=require('node:crypto');
+const {withMaintenanceLock}=require('./maintenance-lock.cjs');
 const {atomicJson,readJson,compareVersions,readRelease,readReleaseDirectory,stageRelease,activateRelease,findInstallation}=require('./releases.cjs');
 function relaunch(electron,appDir){
  electron.app.relaunch({execPath:path.join(appDir,'start-tomatoclock'),args:process.argv.slice(1)});
@@ -39,6 +40,7 @@ async function checkLocalUpdate({electron,appRoot,dataDir}){
   if(['-journal','-wal'].some(suffix=>fs.existsSync(database+suffix)))throw new Error('数据库存在待恢复的事务文件，本次暂缓更新。请让当前程序正常打开并关闭后，再尝试更新。');
   const response=await electron.dialog.showMessageBox({type:'info',title:'番茄钟有新版本',message:`发现新版本 ${release.version}`,detail:`当前版本 ${current.version}。更新完成后会重新打开应用，学习记录和设置保留。\n更新前自动备份数据库，并保留上一版程序。`,buttons:['立即更新','暂时跳过'],defaultId:0,cancelId:1,noLink:true});
   if(response.response!==0)return false;
+  withMaintenanceLock(appDir,()=>{
   const staged=stageRelease(appDir,release);
   if(fs.existsSync(database)){
    if(!fs.lstatSync(database).isFile())throw new Error('数据库路径不是普通文件，更新已取消。');
@@ -47,10 +49,12 @@ async function checkLocalUpdate({electron,appRoot,dataDir}){
   }
   atomicJson(pendingFile,{format:1,previousId:runningId,nextId:release.id,attempted:false});
   try{
-   activateRelease(appDir,staged.id);relaunch(electron,appDir);return true;
+   activateRelease(appDir,staged.id);
   }catch(error){
    activateRelease(appDir,runningId);fs.rmSync(pendingFile,{force:true});throw error;
   }
+  });
+  try{relaunch(electron,appDir);return true;}catch(error){withMaintenanceLock(appDir,()=>{activateRelease(appDir,runningId);fs.rmSync(pendingFile,{force:true});});throw error;}
  }catch(error){
   await electron.dialog.showMessageBox({type:'warning',title:'更新暂时不可用',message:'本次更新未完成，将继续打开当前程序。',detail:error.message,buttons:['继续使用'],noLink:true});return false;
  }
@@ -58,6 +62,11 @@ async function checkLocalUpdate({electron,appRoot,dataDir}){
 function markUpdateHealthy(appRoot){
  const installation=findInstallation(appRoot);if(!installation)return;
  const file=path.join(installation.appDir,'.pending-update.json');
- if(fs.existsSync(file)&&readJson(file).nextId===installation.runningId)fs.unlinkSync(file);
+ if(fs.existsSync(file)){
+  const pending=readJson(file);if(pending.nextId!==installation.runningId)return;
+  readReleaseDirectory(path.join(installation.appDir,'versions'),pending.previousId,{verify:false});
+  atomicJson(path.join(installation.appDir,'.previous-release.json'),{id:pending.previousId});fs.unlinkSync(file);
+  try{require('./cleanup.cjs').cleanupInstalled(installation.appDir);}catch(error){console.warn('新版已启动，程序清理暂缓：',error.message);}
+ }
 }
 module.exports={checkLocalUpdate,markUpdateHealthy};

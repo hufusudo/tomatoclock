@@ -1,6 +1,7 @@
 // Local, immutable Linux releases. Only the `current` symlink changes on update.
 const fs=require('node:fs');const path=require('node:path');
 const {createHash,randomUUID}=require('node:crypto');
+const {withMaintenanceLock}=require('./maintenance-lock.cjs');
 const ID=/^[a-f0-9]{64}$/;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function versionParts(value){
@@ -64,16 +65,26 @@ function writeRelease({sourceDir,releasesDir}){
  if(fs.existsSync(path.join(releasesDir,id)))return readReleaseDirectory(releasesDir,id);
  const staging=path.join(releasesDir,`.staging-${randomUUID()}`);fs.mkdirSync(staging);
  try{
+  atomicJson(path.join(staging,'.stage-owner.json'),{name:'tomatoclock-stage',format:1,pid:process.pid});
   const packageDir=path.join(staging,'package');fs.cpSync(sourceDir,packageDir,{recursive:true,mode:fs.constants.COPYFILE_FICLONE});
   verifyPackage(packageDir,manifest);fs.writeFileSync(path.join(staging,'manifest.json'),raw);
+  fs.unlinkSync(path.join(staging,'.stage-owner.json'));
   fs.renameSync(staging,path.join(releasesDir,id));
  }finally{fs.rmSync(staging,{recursive:true,force:true});}
  return {id,version:manifest.version,manifest,packageDir:path.join(releasesDir,id,'package'),releaseDir:path.join(releasesDir,id)};
 }
 function publishRelease({sourceDir,feedDir}){
  fs.mkdirSync(feedDir,{recursive:true});plainDirectory(feedDir);
+ const release=withMaintenanceLock(feedDir,()=>{
+ const latestFile=path.join(feedDir,'latest.json');let previous;
+ if(fs.existsSync(latestFile))previous=readJson(latestFile);
  const release=writeRelease({sourceDir,releasesDir:path.join(feedDir,'releases')});
- atomicJson(path.join(feedDir,'latest.json'),{format:1,id:release.id});return release;
+ const previousId=previous?.id===release.id?previous.previousId:previous?.id;
+ atomicJson(latestFile,{format:1,id:release.id,...(previousId?{previousId}:{})});
+ return release;
+ });
+ try{require('./cleanup.cjs').cleanupFeed(feedDir);}catch(error){console.warn('本地更新已公布，旧包清理暂缓：',error.message);}
+ return release;
 }
 function readRelease(feedDir,options){
  plainDirectory(feedDir);const latest=readJson(path.join(feedDir,'latest.json'));if(latest.format!==1)throw new Error('更新目录格式不正确。');
