@@ -43,3 +43,8 @@ test('second process exits without opening database, renderer crash preserves co
  assert.equal(second.window,null);assert.equal(e.app.quits,1);
  const first=await fixture(t);first.window.webContents.emit('render-process-gone');assert.equal(first.e.app.quits,1);
 });
+test('single-instance lock uses the selected isolated profile, not default user configuration',async t=>{
+ const e=fakeElectron(),dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-lock-profile-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));let profile;
+ e.app.setPath=(name,value)=>{if(name==='userData')profile=value;};e.app.requestSingleInstanceLock=()=>{assert.equal(profile,path.join(dir,'electron'));return true;};
+ const application=await createDesktopApplication({electron:e,dataDir:dir,htmlPath:path.resolve('index.html')});application.forceClose();
+});

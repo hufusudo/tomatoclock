@@ -3,7 +3,7 @@
 > **新会话请从这里开始。** 本文是唯一入口，按 §7 的顺序执行即可无缝续上。
 > 最后更新：2026-10-07 · 仓库根：`/home/hf/项目/TomatoClock`
 > **2026-10-07 接续：提醒动画已在本地实现并验收，尚未发布到 GitHub Pages。** 用户批准番茄弹跳、彩屑叶片、伸懒腰/呼吸、流动光晕及更响钟声；修复旧演出遮住新提醒、运行期存储失败不提示。详见 `docs/analysis.md` 顶部更新。
-> **桌面版待实施计划审阅：** 用户已批准 `docs/superpowers/specs/2026-10-07-desktop-app-design.md`；Electron＋SQLite、自用每日记录、关闭窗口退出，折线图后续增加。实施计划见 `docs/superpowers/plans/2026-10-07-desktop-app.md`，待用户审阅并选择执行方式，尚未安装依赖或实现桌面代码。当前分支 `codex/desktop-app`，动画改动仍完整保留。
+> **桌面版已实现，正在收尾验收：** Electron＋SQLite、每日学习记录、历史累计、关闭窗口退出，原动画保留。成品在 `dist/TomatoClock-linux-x64/`；使用与备份见 `README.md`，实际检查与执行取舍见 `docs/desktop-implementation-notes.md`。当前分支 `codex/desktop-app`，不自动发布网页。
 > **⚠️ 状态快照：v1 已实现并部署上线（2026-10-06）**，§6/§7 的流程门禁与操作清单仅作历史记录；后续工作（真实动画接续给其他 AI、人工验收遗留项）见 §2 与 memlog。
 > **👉 下一个 AI 做“完善”工作请读 `docs/analysis.md`（分析与待完善清单，含动画替换契约）**
 

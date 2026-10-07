@@ -3,9 +3,11 @@ const {openDatabase}=require('./database.cjs');const {registerIpc,visible}=requi
 function formatDuration(ms){const sec=Math.floor(ms/1000),min=Math.floor(sec/60);return sec<3600?(sec%60===0?`${min} 分`:`${min} 分 ${sec%60} 秒`):`${Math.floor(sec/3600)} 小时 ${min%60} 分`;}
 async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(__dirname,'../index.html'),openDatabaseImpl=openDatabase}) {
  const {app,BrowserWindow,ipcMain,dialog,Notification}=electron;
- if(!app.requestSingleInstanceLock()){app.quit();return {window:null,close:async()=>{},forceClose:()=>{}};}
  if(typeof dataDir!=='string'||!path.isAbsolute(dataDir)) throw new Error('数据目录需要绝对路径。');
- app.setName('TomatoClock');fs.mkdirSync(dataDir,{recursive:true});app.setPath('userData',path.join(dataDir,'electron'));
+ if(process.platform==='linux'&&app.commandLine&&!app.commandLine.hasSwitch('ozone-platform'))app.commandLine.appendSwitch('ozone-platform','x11');
+ app.setName('TomatoClock');app.setDesktopName?.('tomatoclock.desktop');app.setPath('userData',path.join(dataDir,'electron'));
+ if(!app.requestSingleInstanceLock()){app.quit();return {window:null,close:async()=>{},forceClose:()=>{}};}
+ fs.mkdirSync(dataDir,{recursive:true});
  await app.whenReady();
  let db,startupError;
  try {db=await openDatabaseImpl({filePath:path.join(dataDir,'learning.sqlite')});}catch(error){startupError=error;}
