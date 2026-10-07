@@ -6,3 +6,8 @@ node_modules/
 
 # 系统
 .DS_Store
+
+# Desktop packages and local test output
+dist/
+*.sqlite
+*.sqlite-journal
