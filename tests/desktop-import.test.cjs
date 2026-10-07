@@ -1,0 +1,34 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const fs=require('node:fs');const os=require('node:os');const path=require('node:path');
+const {openDatabase}=require('../desktop/database.cjs');
+const {parseLegacyImport}=require('../desktop/legacy-import.cjs');
+const raw=days=>JSON.stringify({days,settings:{workMin:50,shortAdj:0,longAdj:0}});
+test('legacy daily snapshots replace rather than multiply, preserving desktop rows and absent dates',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-import-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const db=await openDatabase({filePath:path.join(dir,'learning.sqlite')});t.after(()=>db.close());
+ db.saveCompletedPomodoro({id:'00000000-0000-4000-8000-000000000001',completedAt:Date.parse('2026-10-07T10:00:00'),workMs:1500000});
+ const input=raw({'2026-10-06':{pomodoros:2,studySeconds:3600},'2026-10-07':{pomodoros:1,studySeconds:3000}});
+ const parsed=parseLegacyImport(input);assert.equal(parsed.summary.dayCount,2);
+ db.importLegacyDays(parsed.days);db.importLegacyDays(parsed.days);
+ assert.deepEqual(db.getSummary('2026-10-07').all,{pomodoros:4,studySeconds:8100});
+ db.importLegacyDays(parseLegacyImport(raw({'2026-10-07':{pomodoros:2,studySeconds:4500}})).days);
+ assert.deepEqual(db.getSummary('2026-10-07').all,{pomodoros:5,studySeconds:9600});
+ assert.equal(db.listDaily({offset:0,limit:30}).rows[0].pomodoros,3);
+ const before=db.getSummary('2026-10-07');
+ assert.throws(()=>db.importLegacyDays([{day:'2026-10-08',pomodoros:1,studySeconds:60},{day:'2026-02-30',pomodoros:1,studySeconds:60}]));
+ assert.deepEqual(db.getSummary('2026-10-07'),before);
+});
+test('every invalid legacy day rejects the whole file',()=>{
+ for(const value of ['{oops','[]',raw({'2026-02-30':{pomodoros:1,studySeconds:60}}),raw({'2026-10-07':{pomodoros:-1,studySeconds:60}}),raw({'2026-10-07':{pomodoros:1,studySeconds:1.5}}),raw({'2026-10-07':{pomodoros:Number.MAX_SAFE_INTEGER+1,studySeconds:60}}),JSON.stringify({days:[]})]) assert.throws(()=>parseLegacyImport(value));
+ assert.deepEqual(parseLegacyImport(raw({})).summary,{from:null,to:null,dayCount:0,pomodoros:0,studySeconds:0});
+});
+test('SQLite abort in the middle of import rolls back earlier rows',async t=>{
+ const SQLite=require('better-sqlite3');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-import-abort-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const filePath=path.join(dir,'learning.sqlite');let db=await openDatabase({filePath});db.close();
+ const rawDb=new SQLite(filePath);
+ rawDb.exec("CREATE TRIGGER reject_test_import BEFORE INSERT ON imported_daily_totals WHEN NEW.local_day='2026-10-09' BEGIN SELECT RAISE(ABORT,'simulated write failure'); END;");rawDb.close();
+ db=await openDatabase({filePath});t.after(()=>db.close());
+ assert.throws(()=>db.importLegacyDays([{day:'2026-10-08',pomodoros:1,studySeconds:60},{day:'2026-10-09',pomodoros:1,studySeconds:60}]),/simulated write failure/);
+ assert.deepEqual(db.getSummary('2026-10-08').all,{pomodoros:0,studySeconds:0});
+});
