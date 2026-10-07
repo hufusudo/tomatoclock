@@ -7,7 +7,7 @@ const inputs=[$('work-input'),$('short-adj-input'),$('long-adj-input')];
 const timer=createTimer({settings:{workMin:50,shortAdj:0,longAdj:0}});
 const runtime=createRuntime(window.tomatoDesktop?{desktopApi:window.tomatoDesktop}:{storage:createStorage(),notifier:createNotifier(),document});
 const celebration=createCelebration({isVisible:runtime.isVisible,watchVisibility:runtime.watchVisibility,getRemainingMs:()=>timer.remainingMs()});
-let settingSignature='',deadlineTimer=null,settingsOperation=null;
+let settingSignature='',deadlineTimer=null,settingsOperation=null,recordsSignature='';
 const controller=createController({timer,records:runtime.records,notifier:runtime.notifier,celebration,onChange:render});
 function fillSettings(settings){inputs.forEach((input,index)=>{input.value=String(settings[['workMin','shortAdj','longAdj'][index]]);});settingSignature=JSON.stringify(settings);}
 function render(s){
@@ -25,6 +25,7 @@ function render(s){
  $('today-count').textContent=String(s.summary?.today.pomodoros??0);$('today-time').textContent=formatDuration((s.summary?.today.studySeconds??0)*1000);
  if($('all-time'))$('all-time').textContent=formatDuration((s.summary?.all.studySeconds??0)*1000);
  document.querySelector('footer').setAttribute('aria-label','学习统计');
+ if(s.summary){const signature=JSON.stringify(s.summary);if(signature!==recordsSignature){recordsSignature=signature;if(!$('records-view').hidden)recordView.refresh();}}
  const warning=$('storage-warning');warning.hidden=!s.error&&runtime.records.isPersistent;
  warning.textContent=s.error??'浏览器存储不可用，本次数据不会保存。';
  if($('retry-save-btn')){$('retry-save-btn').hidden=s.pendingCount===0;$('retry-save-btn').disabled=s.saving;}

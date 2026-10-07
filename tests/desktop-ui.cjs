@@ -26,7 +26,7 @@ async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>
  await page.addInitScript(()=>{window.__testNow=Date.parse('2026-10-07T10:00:00');Date.now=()=>window.__testNow;window.__contexts=[];const Original=window.AudioContext;window.AudioContext=function(...args){const c=new Original(...args);window.__contexts.push(c);return c;};window.AudioContext.prototype=Original.prototype;});
  await page.reload();await page.waitForFunction(()=>!document.getElementById('start-btn').disabled,null,{polling:50});
  await page.locator('#work-input').fill('1');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中',null,{polling:50});
- await page.locator('#records-toggle').click();await page.waitForSelector('#records-view:not([hidden])');await page.locator('#records-back').click();assert.equal(await page.locator('#phase-label').textContent(),'专注中');
+ await page.locator('#records-toggle').click();await page.waitForSelector('#records-view:not([hidden])');assert.equal(await page.locator('#phase-label').textContent(),'专注中');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].minimize());
  await page.waitForFunction(async()=>!(await window.tomatoDesktop.getVisibility()).value,null,{polling:50});
  await page.evaluate(()=>window.__testNow+=60000);await page.waitForFunction(()=>document.getElementById('today-count').textContent==='1',null,{polling:50});
@@ -37,6 +37,7 @@ async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>
  await page.waitForFunction(()=>document.querySelector('[role=dialog]')?.getAttribute('aria-label')==='该开工了',null,{polling:50,timeout:10000});
  assert.equal(await page.locator('.tc-clock').count(),0);await page.waitForFunction(()=>window.__contexts.some(c=>c.state==='running'),null,{polling:50});
  await page.waitForTimeout(1500);await page.keyboard.press('Escape');assert.equal(await page.locator('[role=dialog]').count(),0);
+ await page.waitForFunction(()=>document.querySelector('#records-body tr td')?.textContent==='2026-10-07',null,{polling:50,timeout:2500});await page.locator('#records-back').click();
  const notes=await app.evaluate(()=>globalThis.__tcNotices);assert.deepEqual(notes.created.map(n=>n.title),['番茄完成 🍅','休息结束']);
  await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中',null,{polling:50});await page.evaluate(()=>window.__testNow+=10000);await close();
  page=await launch();assert.equal(await page.locator('#phase-label').textContent(),'准备开始');assert.equal(await page.locator('#work-input').inputValue(),'1');
@@ -51,6 +52,6 @@ async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>
  await page.locator('#records-back').click();await page.screenshot({path:path.join(out,packaged?'timer-packaged.png':'timer.png')});
  assert.deepEqual(errors,[]);
  await close();
- const result={packaged,displayBackend:platform,sandbox:'enabled',actualSQLite:'pass',minimizedTimer:'pass',latestReminderOnce:'pass',manualStart:'pass',unfinishedDiscarded:'pass',restartPersistence:'pass',importPreviewConfirmation:'pass',audioContext:'running',pageErrors:errors,notifications:noticeResults};
+ const result={packaged,displayBackend:platform,sandbox:'enabled',actualSQLite:'pass',minimizedTimer:'pass',latestReminderOnce:'pass',manualStart:'pass',unfinishedDiscarded:'pass',restartPersistence:'pass',visibleRecordsAutoRefresh:'pass',importPreviewConfirmation:'pass',audioContext:'running',pageErrors:errors,notifications:noticeResults};
  fs.writeFileSync(path.join(out,packaged?'packaged-verification.json':'verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
 }finally{if(app)await close();fs.rmSync(dir,{recursive:true,force:true});}})().catch(error=>{console.error(error);process.exitCode=1;});

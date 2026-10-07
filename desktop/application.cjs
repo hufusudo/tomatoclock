@@ -58,4 +58,13 @@ async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(
  try {await window.loadFile(htmlPath);}catch(error){forceClose();throw error;}
  return {window,close,forceClose};
 }
-module.exports={createDesktopApplication};
+async function startDesktopApplication(options){
+ try {return await createDesktopApplication(options);}
+ catch(error){
+  console.error('TomatoClock 启动失败：',error);
+  try {await options.electron.app.whenReady();options.electron.dialog.showErrorBox('番茄钟无法启动',`无法访问本地数据或启动应用。\n${error.message}`);}
+  finally {options.electron.app.exit(1);}
+  return null;
+ }
+}
+module.exports={createDesktopApplication,startDesktopApplication};

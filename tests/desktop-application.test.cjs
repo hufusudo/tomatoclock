@@ -48,3 +48,10 @@ test('single-instance lock uses the selected isolated profile, not default user 
  e.app.setPath=(name,value)=>{if(name==='userData')profile=value;};e.app.requestSingleInstanceLock=()=>{assert.equal(profile,path.join(dir,'electron'));return true;};
  const application=await createDesktopApplication({electron:e,dataDir:dir,htmlPath:path.resolve('index.html')});application.forceClose();
 });
+test('startup path failure shows a native error after ready, preserves path and creates no replacement database',async t=>{
+ const {startDesktopApplication}=require('../desktop/application.cjs');const e=fakeElectron();const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tomatoclock-startup-error-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const blocked=path.join(dir,'blocked');fs.writeFileSync(blocked,'keep');const order=[],dialogs=[];let exitCode;
+ e.app.whenReady=async()=>{order.push('ready');};e.app.exit=code=>{exitCode=code;};e.dialog.showErrorBox=(title,message)=>{order.push('dialog');dialogs.push({title,message});};
+ const value=await startDesktopApplication({electron:e,dataDir:path.join(blocked,'data'),htmlPath:path.resolve('index.html')});
+ assert.equal(value,null);assert.deepEqual(order,['ready','dialog']);assert.equal(exitCode,1);assert.equal(dialogs[0].title,'番茄钟无法启动');assert.ok(dialogs[0].message.includes('ENOTDIR'));assert.equal(fs.readFileSync(blocked,'utf8'),'keep');
+});
