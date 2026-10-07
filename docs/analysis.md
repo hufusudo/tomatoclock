@@ -7,7 +7,7 @@
 
 ## 2026-10-07 桌面版接续
 
-Electron＋SQLite 桌面版已实现，收尾验收中。当前入口以 README.md、桌面设计/实施计划和 docs/desktop-implementation-notes.md 为准。后文的零构建约束仅适用于保留的网页入口，桌面依赖已按批准的设计新增。
+Electron＋SQLite 桌面版已实现并通过成品验收，用户级安装完成。当前入口以 README.md、桌面设计/实施计划和 docs/desktop-implementation-notes.md 为准。后文的零构建约束仅适用于保留的网页入口，桌面依赖已按批准的设计新增。
 
 ## 2026-10-07 动画接续结果
 
