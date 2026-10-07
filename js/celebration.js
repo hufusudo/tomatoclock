@@ -118,6 +118,7 @@ export function createCelebration(deps = {}) {
     closeOverlay = close;
   }
 
+  // show 契约（可注入替换）：({ phase, remainingMs, onClose })；实现方须经 onClose 汇报关闭，dismiss() 才能关闭注入的演出
   const show = deps.show ?? placeholderShow;
 
   function handleShowClosed() {

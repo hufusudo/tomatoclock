@@ -38,7 +38,7 @@ function parseState(raw) {
   } catch {
     return null;
   }
-  if (!isPlainObject(parsed) || !isPlainObject(parsed.days) || !isPlainObject(parsed.settings)) {
+  if (!isPlainObject(parsed) || !isPlainObject(parsed.days)) {
     return null;
   }
   const days = {};
@@ -46,7 +46,11 @@ function parseState(raw) {
     const day = normalizeDay(value);
     if (day) days[key] = day;
   }
-  return { days, settings: sanitizeSettings(parsed.settings) };
+  // settings 字段损坏/缺失只回退 settings，已解析的有效 days 保留（不连带抹掉天数据）
+  const settings = isPlainObject(parsed.settings)
+    ? sanitizeSettings(parsed.settings)
+    : sanitizeSettings({});
+  return { days, settings };
 }
 
 // localStorage 不可用时的内存兜底（同样形状）
@@ -93,8 +97,8 @@ export function createStorage({ backend } = {}) {
       target = null;
     }
   }
-  const isPersistent = probeBackend(target);
-  const store = isPersistent ? target : memoryBackend();
+  let persistent = probeBackend(target);
+  let store = persistent ? target : memoryBackend();
 
   // 读失败或形状不符 → 默认值，不写回
   function readState() {
@@ -108,7 +112,15 @@ export function createStorage({ backend } = {}) {
   }
 
   function writeState(state) {
-    store.setItem(STORAGE_KEY, JSON.stringify(state));
+    const serialized = JSON.stringify(state);
+    try {
+      store.setItem(STORAGE_KEY, serialized);
+    } catch {
+      // 运行期写失败（配额满等）：切内存后端保住本次入账，番茄完成的入账/通知/演出不被打断
+      store = memoryBackend();
+      store.setItem(STORAGE_KEY, serialized);
+      persistent = false;
+    }
   }
 
   function load() {
@@ -134,5 +146,12 @@ export function createStorage({ backend } = {}) {
     return { key, day: { pomodoros: day.pomodoros, studySeconds: day.studySeconds } };
   }
 
-  return { isPersistent, load, saveSettings, recordPomodoro };
+  return {
+    get isPersistent() {
+      return persistent; // 运行期写失败后置 false（getter 恒取当前值）
+    },
+    load,
+    saveSettings,
+    recordPomodoro,
+  };
 }

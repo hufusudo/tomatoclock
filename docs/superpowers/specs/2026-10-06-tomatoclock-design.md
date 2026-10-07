@@ -121,3 +121,5 @@ export function dismiss()     // 关闭演出
 - 关闭标签页 = 计时与提醒全部终止（brief 既定边界）
 - 系统时间被手动修改会导致判定错乱（不防护）
 - 依赖浏览器对 ES modules 与 Notification API 的支持（现代浏览器均满足）
+- 隐藏标签页的定时器被浏览器节流，后台到点提醒可能延迟约 1 分钟
+- localStorage 运行期写失败（配额满等）自动切内存后端继续运行（isPersistent 置 false），入账/通知/演出不被打断，但该次数据不落盘

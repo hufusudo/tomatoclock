@@ -4,8 +4,10 @@
 const MINUTE_MS = 60000;
 
 function clampInt(value, fallback, min, max) {
-  const rounded = Math.round(Number(value));
-  const n = Number.isFinite(rounded) ? rounded : fallback;
+  // 缺失（null/undefined/''）或 Number() 后非有限（NaN/Infinity）→ fallback；0 是合法数字，仍走钳制
+  if (value === null || value === undefined || value === '') return fallback;
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
 

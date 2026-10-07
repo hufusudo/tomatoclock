@@ -137,9 +137,33 @@ function handleEvents(events) {
   }
 }
 
+// ---- deadline 对齐的单次定时器（与 setInterval(250) 并存）----
+// setInterval 只管渲染与兜底；deadline 变化处另排单次 setTimeout，到点即触发同一 tick()，
+// 减轻隐藏标签页被节流时后台通知的延迟（见 spec §9 已知限制）
+let deadlineTimer = null;
+
+function clearDeadlineTimer() {
+  if (deadlineTimer !== null) {
+    clearTimeout(deadlineTimer);
+    deadlineTimer = null;
+  }
+}
+
+function scheduleDeadlineTick() {
+  clearDeadlineTimer(); // 旧定时器先清，防泄漏/防双触发
+  if (timer.state !== 'working' && timer.state !== 'break') return; // 无 deadline（ready/paused）不排
+  deadlineTimer = setTimeout(() => {
+    deadlineTimer = null;
+    tick();
+  }, Math.max(0, timer.remainingMs()));
+}
+
 function tick() {
   const events = timer.tick();
-  if (events.length > 0) handleEvents(events);
+  if (events.length > 0) {
+    handleEvents(events);
+    scheduleDeadlineTick(); // deadline 变化：进 break 排新段；break-done 回 ready 则取消
+  }
   render();
 }
 
@@ -149,19 +173,29 @@ startBtn.addEventListener('click', () => {
   notifier.requestPermission().then(renderNotifyHint);
   renderNotifyHint();
   timer.start();
+  scheduleDeadlineTick(); // 起跑按 deadline 排单次到点定时器
   render();
 });
 
 pauseBtn.addEventListener('click', () => {
   if (timer.state === 'working') timer.pause();
   else if (timer.state === 'paused') timer.resume();
+  scheduleDeadlineTick(); // 暂停取消旧定时器；恢复按新 deadline 重排
   render();
 });
 
 resetBtn.addEventListener('click', () => {
   timer.reset();
+  scheduleDeadlineTick(); // 重置取消旧定时器
   render();
 });
+
+// 设置回填（启动与 change 后同一口径）：三框恒显示钳制后的值
+function fillSettingsInputs() {
+  workInput.value = String(settings.workMin);
+  shortAdjInput.value = String(settings.shortAdj);
+  longAdjInput.value = String(settings.longAdj);
+}
 
 function onSettingsChange() {
   if (timer.state !== 'ready') return; // 非 ready 输入框本就 disabled，双保险
@@ -172,6 +206,7 @@ function onSettingsChange() {
   });
   timer.setSettings(next);
   settings = storage.saveSettings(next); // 写入时机之二
+  fillSettingsInputs(); // 回填钳制后的值（脏值/空值不留在框里）
   render(); // 重渲染预览与 #time（ready 态显示新工作时长）
 }
 
@@ -180,9 +215,7 @@ shortAdjInput.addEventListener('change', onSettingsChange);
 longAdjInput.addEventListener('change', onSettingsChange);
 
 // ---- 启动渲染 + tick 循环 ----
-workInput.value = String(settings.workMin);
-shortAdjInput.value = String(settings.shortAdj);
-longAdjInput.value = String(settings.longAdj);
+fillSettingsInputs();
 if (!storage.isPersistent) storageWarningEl.hidden = false;
 render(); // 含页脚（footerDayKey 为空 → 首次即读今日桶）
 setInterval(tick, 250);

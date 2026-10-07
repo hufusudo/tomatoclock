@@ -160,6 +160,14 @@ test('sanitizeSettings 钳制边界', () => {
   assert.deepStrictEqual(sanitizeSettings({ shortAdj: 99, longAdj: -99 }), { workMin: 50, shortAdj: 5, longAdj: -5 });
 });
 
+test('sanitizeSettings 缺失值走 fallback 而非 Number() 归 0', () => {
+  // Number('')/Number(null) 归 0 再钳 1 会击穿“缺失 → 50”回退，输入框清空必须回 50
+  assert.deepStrictEqual(sanitizeSettings({ workMin: '' }), { workMin: 50, shortAdj: 0, longAdj: 0 });
+  assert.deepStrictEqual(sanitizeSettings({ workMin: null }), { workMin: 50, shortAdj: 0, longAdj: 0 });
+  assert.deepStrictEqual(sanitizeSettings({ workMin: undefined }), { workMin: 50, shortAdj: 0, longAdj: 0 });
+  assert.deepStrictEqual(sanitizeSettings({ shortAdj: '', longAdj: null }), { workMin: 50, shortAdj: 0, longAdj: 0 });
+});
+
 test('有效休息 1 分钟下限与 ±5', () => {
   assert.equal(effectiveDurations({ workMin: 1, shortAdj: -5 }).shortBreakMs, 60000);
   assert.equal(effectiveDurations({ workMin: 25, shortAdj: 5 }).shortBreakMs, 600000); // 控制器裁定 A：原 480000 为简报算术笔误，公式权威

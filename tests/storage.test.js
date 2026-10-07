@@ -120,5 +120,9 @@ test('多次入账累加 studySeconds', () => {
 test('dayKey 用本地时区而非 UTC', () => {
   const ms = Date.parse('2026-10-06T00:30:00'); // 本地 00:30（UTC+8 下 UTC 仍是前一天）
   assert.equal(dayKey(ms), '2026-10-06');
-  assert.notEqual(dayKey(ms), new Date(ms).toISOString().slice(0, 10)); // toISOString 是 UTC，禁用
+  // 时区无关断言：同一 Date 用本地 getter 拼期望值（toISOString 是 UTC，禁用作对照）
+  const d = new Date(ms);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  assert.equal(dayKey(ms), `${d.getFullYear()}-${month}-${day}`);
 });
