@@ -8,7 +8,7 @@ ipcRenderer.on('tc:prepareClose',async(_event,requestId)=>{
  ipcRenderer.invoke('tc:closeStatus',{requestId,pendingCount}).catch(()=>{});
 });
 const api={};
-for(const name of ['getSettings','saveSettings','saveCompletedPomodoro','getSummary','listDaily','notifyPhase','getVisibility','previewLegacyImport','commitLegacyImport'])api[name]=call(name);
+for(const name of ['getSettings','saveSettings','saveCompletedPomodoro','getSummary','listDaily','getDailyRange','notifyPhase','getVisibility','previewLegacyImport','commitLegacyImport'])api[name]=call(name);
 api.onVisibilityChange=callback=>subscribe('tc:visibility',callback);
 api.onPrepareClose=callback=>{prepareClose=callback;return ()=>{if(prepareClose===callback)prepareClose=null;};};
 contextBridge.exposeInMainWorld('tomatoDesktop',api);

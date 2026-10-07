@@ -44,6 +44,16 @@ test('local midnight buckets, empty days and 30+1 descending pagination',async t
  assert.throws(()=>db.listDaily({offset:-1,limit:30}));
  assert.deepEqual(db.getSummary('2026-10-07').all,{pomodoros:31,studySeconds:1860});
 });
+test('read-only daily range includes boundary days, combines imported and desktop records and excludes other days',async t=>{
+ const {db,filePath}=await fixture(t);
+ db.saveCompletedPomodoro({id:id(1),completedAt:at('2026-09-28'),workMs:1500000});db.saveCompletedPomodoro({id:id(2),completedAt:at('2026-10-04'),workMs:3000000});db.saveCompletedPomodoro({id:id(3),completedAt:at('2026-10-05'),workMs:60000});
+ db.importLegacyDays([{day:'2026-09-28',pomodoros:2,studySeconds:600},{day:'2026-10-01',pomodoros:1,studySeconds:1500}]);
+ const before=fs.readFileSync(filePath);
+ assert.deepEqual(db.getDailyRange({from:'2026-09-28',to:'2026-10-04'}),[{day:'2026-09-28',pomodoros:3,studySeconds:2100},{day:'2026-10-01',pomodoros:1,studySeconds:1500},{day:'2026-10-04',pomodoros:1,studySeconds:3000}]);
+ assert.deepEqual(db.getDailyRange({from:'2026-10-02',to:'2026-10-03'}),[]);
+ for(const range of [{from:'2026-02-30',to:'2026-03-01'},{from:'2026-10-04',to:'2026-09-28'},{from:'2026-01-01',to:'2026-12-31'}])assert.throws(()=>db.getDailyRange(range));
+ assert.deepEqual(fs.readFileSync(filePath),before);
+});
 test('settings survive reopening and invalid shapes are rejected',async t=>{
  const {db,filePath}=await fixture(t);
  assert.deepEqual(db.getSettings(),{workMin:50,shortAdj:0,longAdj:0});

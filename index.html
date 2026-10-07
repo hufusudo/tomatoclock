@@ -46,9 +46,12 @@
   <section id="records-view" class="records" hidden aria-labelledby="records-title">
     <div class="records-heading"><h1 id="records-title">学习记录</h1><button id="records-back" type="button">回到计时</button></div>
     <p class="records-description">每个完成的番茄都会留下记录。</p>
-    <div class="records-tools"><button id="legacy-import-btn" type="button" hidden>导入旧记录</button><button id="legacy-export-btn" type="button" hidden>导出学习记录</button></div>
+    <div class="records-toolbar"><div class="records-mode" role="group" aria-label="统计方式"><button id="records-day-view" type="button" aria-pressed="true">按天</button><button id="records-week-view" type="button" aria-pressed="false">按周</button></div><div class="records-tools"><button id="legacy-import-btn" type="button" hidden>导入旧记录</button><button id="legacy-export-btn" type="button" hidden>导出学习记录</button></div></div>
+    <div id="records-week-filter" class="records-period" hidden><label for="records-month">月份</label><input id="records-month" type="month" min="0001-01" max="9998-12"><label for="records-week">周次</label><select id="records-week"></select></div>
+    <section id="week-summary" class="week-summary" hidden aria-labelledby="week-title"><div><h2 id="week-title"></h2><p id="week-range"></p></div><div class="week-study"><span>周总学习时长</span><strong id="week-total"></strong><span id="week-count"></span></div></section>
+    <p id="records-week-note" class="records-week-note" hidden>周一至周日，跨月按完整七天统计；第1周为包含当月1日的那一周。</p>
     <div id="import-preview" hidden><p id="import-summary"></p><p class="import-note">同一来源、同一天的旧记录将替换；桌面版记录保留。</p><button id="import-confirm" type="button">确认导入</button><button id="import-cancel" type="button">取消</button></div>
-    <div class="records-table"><table><thead><tr><th scope="col">日期</th><th scope="col">番茄数</th><th scope="col">学习时长</th></tr></thead><tbody id="records-body"></tbody></table></div>
+    <div class="records-table"><table><thead><tr><th scope="col">日期</th><th scope="col">番茄数</th><th scope="col">每日总时长</th></tr></thead><tbody id="records-body"></tbody></table></div>
     <div class="records-pages"><button id="records-prev" type="button">上一页</button><p id="records-status" role="status"></p><button id="records-next" type="button">下一页</button></div>
   </section>
   <button id="retry-save-btn" type="button" hidden>重试保存</button>

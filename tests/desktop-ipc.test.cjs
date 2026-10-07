@@ -14,5 +14,9 @@ test('IPC authorizes only the main window frame and uses the real database',asyn
  assert.equal((await handler(source(window),record)).ok,true);
  assert.deepEqual(db.getSummary('2026-10-07').today,{pomodoros:1,studySeconds:1500});
  assert.equal((await e.handlers.get('tc:listDaily')(source(window),{offset:-1,limit:30})).ok,false);
+ const range=e.handlers.get('tc:getDailyRange');assert.equal(typeof range,'function');
+ assert.equal((await range({sender:{},senderFrame:{}},{from:'2026-10-07',to:'2026-10-07'})).ok,false);
+ assert.deepEqual((await range(source(window),{from:'2026-10-07',to:'2026-10-07'})).value,[{day:'2026-10-07',pomodoros:1,studySeconds:1500}]);
+ assert.equal((await range(source(window),{from:'2026-02-30',to:'2026-03-01'})).ok,false);
  assert.equal(e.handlers.has('tc:query'),false);
 });

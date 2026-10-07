@@ -218,6 +218,28 @@ footer {
 .records-heading { display:flex;justify-content:space-between;align-items:center;gap:1rem; }
 .records h1 { font-size:1.7rem;margin:0;font-weight:600; }
 .records-description { margin:.5rem 0 1.5rem;color:var(--muted);font-size:.9rem; }
+.records-toolbar { display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap; }
+.records-mode { display:inline-flex;border:1px solid var(--line);border-radius:5px;padding:3px;gap:3px;margin-bottom:1.2rem; }
+.records-mode button { border:0;background:transparent;padding:.45rem 1.4rem; }
+.records-mode button[aria-pressed="true"] { background:var(--fg);color:var(--bg); }
+.records-period { display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:1.2rem; }
+.records-period label { font-size:.85rem;color:var(--muted); }
+.records-period input,.records-period select { font:inherit;font-size:.9rem;color:var(--fg);background:#fff;border:1px solid var(--line);border-radius:4px;padding:.4rem .55rem;max-width:100%; }
+.records-period input:focus-visible,.records-period select:focus-visible { outline:2px solid var(--accent);outline-offset:2px; }
+.week-summary { display:flex;justify-content:space-between;align-items:center;gap:1.5rem;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:1.2rem 0; }
+.week-summary h2 { font-size:1.25rem;font-weight:600;margin:0; }
+.week-summary p { margin:.4rem 0 0;font-size:.85rem;color:var(--muted); }
+.week-study { text-align:right;display:flex;flex-direction:column;gap:.15rem; }
+.week-study span { font-size:.8rem;color:var(--muted); }
+.week-study strong { font-size:clamp(1.5rem,4vw,2.1rem);font-weight:600;font-variant-numeric:tabular-nums; }
+.records-week-note { font-size:.8rem;color:var(--muted);margin:1rem 0; }
+.records-outside-month { color:var(--muted); }
+.records.is-week-view { padding-top:1rem;padding-bottom:1rem; }
+.records.is-week-view .records-description { display:none; }
+.records.is-week-view .records-toolbar { margin-top:1rem; }
+.records.is-week-view .week-summary { padding:.8rem 0; }
+.records.is-week-view td { padding:.35rem .75rem;font-size:.9rem; }
+@media (max-width:520px) { .week-summary { align-items:flex-start;flex-direction:column;gap:.8rem; }.week-study { text-align:left; } }
 .records-tools { display:flex;gap:.6rem;margin-bottom:1rem; }
 .records-table { overflow-x:auto; }
 .records table { border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums; }

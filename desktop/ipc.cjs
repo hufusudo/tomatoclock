@@ -9,7 +9,7 @@ function registerIpc({ipcMain,window,db,dialog,notify,onCloseStatus=()=>{},start
   } catch(error){return {ok:false,error:{code:error.code??'OPERATION_FAILED',message:error.message??'操作失败。'}};}
  });}
  const requireDb=()=>{if(!db) throw Object.assign(new Error(startupError?.message??'学习数据库无法打开。'),{code:'DATABASE_UNAVAILABLE'});return db;};
- for(const name of ['getSettings','saveSettings','saveCompletedPomodoro','getSummary','listDaily']) bind(name,arg=>requireDb()[name](arg));
+ for(const name of ['getSettings','saveSettings','saveCompletedPomodoro','getSummary','listDaily','getDailyRange']) bind(name,arg=>requireDb()[name](arg));
  bind('previewLegacyImport',async()=>{
   requireDb();preview=null;
   const selected=await dialog.showOpenDialog(window,{title:'导入网页版学习记录',properties:['openFile'],filters:[{name:'TomatoClock JSON',extensions:['json']}]});

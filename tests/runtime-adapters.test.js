@@ -21,3 +21,9 @@ test('web export contains only its normalized days/settings and keeps original r
  assert.deepEqual(JSON.parse(r.legacy.exportJson()),{days:{'2026-10-07':{pomodoros:2,studySeconds:4500}},settings:{workMin:50,shortAdj:0,longAdj:0}});
  assert.equal((await r.records.getSummary('2026-10-07')).today.pomodoros,2);
 });
+test('web date range reads only inclusive matching days in ascending order without altering storage',async()=>{
+ const days={'2026-10-05':{pomodoros:9,studySeconds:900},'2026-10-04':{pomodoros:2,studySeconds:3000},'2026-09-28':{pomodoros:1,studySeconds:1500}};
+ const before=JSON.stringify(days),runtime=createRuntime({storage:{load:()=>({days})},notifier:{},document:{visibilityState:'visible'}});
+ assert.deepEqual(await runtime.records.getDailyRange({from:'2026-09-28',to:'2026-10-04'}),[{day:'2026-09-28',pomodoros:1,studySeconds:1500},{day:'2026-10-04',pomodoros:2,studySeconds:3000}]);
+ await assert.rejects(runtime.records.getDailyRange({from:'2026-02-30',to:'2026-03-01'}));assert.equal(JSON.stringify(days),before);
+});

@@ -10,6 +10,7 @@ async function openDatabase({filePath}) {
  if(typeof filePath!=='string'||!path.isAbsolute(filePath)) throw invalid('数据库需要绝对路径。');
  const {sanitizeSettings}=await import('../js/timer.js');
  const {dayKey}=await import('../js/storage.js');
+ const {validateRecordRange}=await import('../js/record-periods.js');
  fs.mkdirSync(path.dirname(filePath),{recursive:true});
  let db;
  try {
@@ -44,6 +45,7 @@ async function openDatabase({filePath}) {
   const oneDay=db.prepare(`SELECT pomodoros,studySeconds FROM (${dailySql}) WHERE day=?`);
   const page=db.prepare(`${dailySql} ORDER BY day DESC LIMIT ? OFFSET ?`);
   const countDays=db.prepare(`SELECT COUNT(*) AS count FROM (${dailySql})`);
+  const dailyRange=db.prepare(`SELECT * FROM (${dailySql}) WHERE day BETWEEN ? AND ? ORDER BY day`);
   const getSettingsStmt=db.prepare('SELECT work_min AS workMin,short_adj AS shortAdj,long_adj AS longAdj FROM settings WHERE id=1');
   const setSettingsStmt=db.prepare('UPDATE settings SET work_min=@workMin,short_adj=@shortAdj,long_adj=@longAdj WHERE id=1');
   const importStmt=db.prepare(`INSERT INTO imported_daily_totals VALUES ('web-v1',@day,@pomodoros,@studySeconds)
@@ -74,6 +76,7 @@ async function openDatabase({filePath}) {
     if(!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>30) throw invalid('分页范围不正确。');
     return {rows:page.all(limit,offset).map(row=>({day:row.day,...totals(row)})),totalDays:countDays.get().count};
    },
+   getDailyRange(range){const {from,to}=validateRecordRange(range);return dailyRange.all(from,to).map(row=>({day:row.day,...totals(row)}));},
    importLegacyDays(days){const rows=normalizeDays(days);importRows(rows);return {dayCount:rows.length};},
    close(){if(db.open) db.close();}
   };
