@@ -115,6 +115,7 @@ function render() {
   shortAdjInput.disabled = !editable;
   longAdjInput.disabled = !editable;
 
+  storageWarningEl.hidden = storage.isPersistent; // 含运行期写失败后的内存降级
   renderNotifyHint();
 }
 
@@ -129,9 +130,11 @@ function handleEvents(events) {
       const kindLabel = breakEvent && breakEvent.kind === 'long' ? '长休' : '短休';
       const durationText = formatDuration(breakEvent ? breakEvent.durationMs : timer.remainingMs());
       notifier.notify({ title: '番茄完成 🍅', body: `该休息了：${kindLabel} ${durationText}。` });
+      celebration.dismiss(); // 新阶段替换旧演出，模块内部仍保留重复 play 幂等契约
       celebration.play('work-done');
     } else if (event.type === 'break-done') {
       notifier.notify({ title: '休息结束', body: '该开工了：点“开始下一个番茄”。' });
+      celebration.dismiss();
       celebration.play('break-done');
     }
   }
@@ -216,7 +219,6 @@ longAdjInput.addEventListener('change', onSettingsChange);
 
 // ---- 启动渲染 + tick 循环 ----
 fillSettingsInputs();
-if (!storage.isPersistent) storageWarningEl.hidden = false;
 render(); // 含页脚（footerDayKey 为空 → 首次即读今日桶）
 setInterval(tick, 250);
 document.addEventListener('visibilitychange', tick);

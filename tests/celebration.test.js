@@ -114,3 +114,89 @@ test('无参创建不触碰 document/AudioContext（默认实现惰性）', () =
   assert.equal(typeof AudioContext, 'undefined');
   assert.doesNotThrow(() => createCelebration());
 });
+
+test('隐藏 pending 时 dismiss 保留待补放提醒', () => {
+  const s = setup({ visible: false });
+  s.celebration.play('work-done');
+  s.celebration.dismiss();
+  s.state.visible = true;
+  s.fireVisibility();
+  assert.equal(s.shows.length, 1);
+  assert.equal(s.shows[0].phase, 'work-done');
+});
+
+test('演出未关闭时隐藏页面后再次 play 也不排队重播', () => {
+  const s = setup();
+  s.celebration.play('work-done');
+  s.state.visible = false;
+  s.celebration.play('break-done');
+  s.state.visible = true;
+  s.fireVisibility();
+  assert.equal(s.shows.length, 1);
+  assert.equal(s.sounds.length, 1);
+});
+
+// 外部音频设备在 Node 中不可用，仅替代 Web Audio 边界；执行真正的声音排程代码。
+function suspendedAudio(t) {
+  const starts = [];
+  let finishResume;
+  const parameter = () => ({
+    value: 0,
+    setValueAtTime() {},
+    exponentialRampToValueAtTime() {},
+  });
+  const node = (extra = {}) => ({ connect: (next) => next, disconnect() {}, ...extra });
+  class FakeAudioContext {
+    state = 'suspended';
+    currentTime = 1;
+    destination = node();
+    resume() {
+      return new Promise((resolve) => {
+        finishResume = () => { this.state = 'running'; this.currentTime = 5; resolve(); };
+      });
+    }
+    createOscillator() {
+      return node({ frequency: parameter(), start: (at) => starts.push(at), stop() {} });
+    }
+    createGain() { return node({ gain: parameter() }); }
+    createDynamicsCompressor() {
+      return node(Object.fromEntries(['threshold', 'knee', 'ratio', 'attack', 'release'].map((key) => [key, parameter()])));
+    }
+  }
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'AudioContext');
+  Object.defineProperty(globalThis, 'AudioContext', { configurable: true, value: FakeAudioContext });
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'AudioContext', original);
+    else delete globalThis.AudioContext;
+  });
+  return { starts, resume: () => finishResume() };
+}
+
+test('挂起音频恢复完成后才从新 currentTime 排程，三声不挤压', async (t) => {
+  const audio = suspendedAudio(t);
+  const { createCelebration: create } = await import('../js/celebration.js?audio-resume');
+  const c = create({ isVisible: () => true, watchVisibility: () => {}, show: () => {} });
+  c.play('work-done');
+  assert.equal(audio.starts.length, 0);
+  audio.resume();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(audio.starts.length > 0);
+  assert.ok(Math.min(...audio.starts) > 5);
+  assert.ok(Math.max(...audio.starts) - Math.min(...audio.starts) >= 0.3);
+  c.dismiss();
+});
+
+test('恢复音频前关闭演出，恢复后不补发迟到声音', async (t) => {
+  const audio = suspendedAudio(t);
+  const { createCelebration: create } = await import('../js/celebration.js?audio-cancel');
+  let onClose;
+  const c = create({
+    isVisible: () => true, watchVisibility: () => {},
+    show: (args) => { onClose = args.onClose; },
+  });
+  c.play('work-done');
+  onClose();
+  audio.resume();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(audio.starts, []);
+});

@@ -1,9 +1,19 @@
 # TomatoClock v1 分析与完善交接（给下一个 AI）
 
-- **日期**：2026-10-06 · **状态**：v1 已实现、已上线、27/27 测试绿
+- **日期**：2026-10-07 · **状态**：v1 已上线；新版提醒动画本地完成，尚未发布；31/31 用例通过
 - **线上**：`https://hufusudo.github.io/tomatoclock/`（GitHub Pages，push `main` 即发布）
 - **仓库**：`https://github.com/hufusudo/tomatoclock`（本地根：`/home/hf/项目/TomatoClock`）
 - **你的任务**：按 §5 的优先级**完善**它。动手前必读 §3 约束（破坏了就违背产品公理）与 §6 范围外清单（别顺手加功能）。
+
+## 2026-10-07 接续结果
+
+- 用户已批准较丰富的全屏演出：原创内联 SVG 番茄弹跳、彩屑/叶片、伸懒腰后呼吸、流动光晕与星点；休息结束跳起挥手。休息显示实时倒计时，开工显示手动开始指引。
+- 点击任意处或 Esc 关闭，Tab 可聚焦关闭按钮；关闭清理刷新、键盘监听及音频节点，条件允许时恢复原焦点；支持减少动态效果。五个依赖、冻结接口和原 8 条测试保留。
+- 合成钟声更响，增加轻谐波与动态压缩；恢复 AudioContext 后才排程，关闭后取消迟到声音。真实 OfflineAudioContext 渲染：新版休息声 RMS 0.06170，旧版 0.01861（同一 2 秒窗口，约 +10.4dB），新版峰值 0.40645，无削波。实际设备音量仍需用户试听。
+- `app.js` 每个新阶段先 dismiss 旧演出再 play，修复“该休息了”一直遮住“该开工了”；每次渲染同步存储警告，覆盖运行期写失败。
+- 浏览器已核验设置钳制、暂停恢复、完成入账、刷新持久化、手动开工、两个问题的复现与修复；动画已核验倒计时刷新、点击/Esc/Tab、焦点、计时器释放、1280/800 宽度及减少动态效果，无页面错误。
+- 新增 4 条测试，总计 31 条；系统通知在本次浏览器测试中使用替身，真实后台通知送达仍是用户本机验收项。
+- 参考动效思路：[Focused Breathing](https://codepen.io/scrabill/pen/QWKgRMr)、[Confetti Explosion](https://codepen.io/eformx/pen/qBGbNZX)；代码与角色原创实现，无引入库或素材依赖。
 
 ## 1. 项目速览
 
@@ -22,9 +32,9 @@ style.css           布局 B（极简数字派）：巨大倒计时 + 四点轮�
 js/timer.js         纯计时状态机（139 行）：不碰 DOM/storage，时间只经注入 now()
 js/storage.js       localStorage（157 行）：单键 tomatoclock:v1、本地日期分桶、损坏容错、内存兜底
 js/notify.js        通知权限（48 行）：只请求一次、被拒不重弹、恒 resolve 不外溢异常
-js/celebration.js   动画接缝（165 行）：play/dismiss 冻结接口 + pending 幂等 + 占位演出 ★你要替换的部分
+js/celebration.js   动画接缝：play/dismiss 冻结接口 + pending 幂等 + 原生 CSS/SVG 演出与钟声
 js/app.js           组装（223 行）：tick 循环、事件分发、渲染、设置闸门
-tests/              node --test 零依赖，27 用例（timer 11 / storage 8 / celebration 8）
+tests/              node --test 零依赖，31 用例（timer 11 / storage 8 / celebration 12）
 ```
 
 **状态机**（timer.js，四态一环）：`READY → WORKING(可暂停) → BREAK(短/长) → READY`。
@@ -61,8 +71,8 @@ tests/              node --test 零依赖，27 用例（timer 11 / storage 8 / c
 ## 4. 工作方式与验证
 
 ```bash
-node --test                    # 全量 27 用例，必须全绿；改完至少跑三种时区：
-TZ=UTC node --test && TZ=America/New_York node --test
+node --test --test-isolation=none  # 显示全部 31 用例；改完至少跑三种时区：
+TZ=UTC node --test --test-isolation=none && TZ=America/New_York node --test --test-isolation=none
 python3 -m http.server 8000    # 本地预览（通知/动画需真实浏览器手工验）
 git push origin main           # 即发布 GitHub Pages（HTTPS 需 PAT 或 SSH 密钥）
 ```
@@ -71,9 +81,9 @@ git push origin main           # 即发布 GitHub Pages（HTTPS 需 PAT 或 SSH 
 - 提交信息前缀 `feat:` / `fix:` / `docs:` / `test:`。
 - 浏览器行为（后台通知、AudioContext 自动播放策略、节流）无法自动化——写 /tmp 假 DOM harness 冒烟（不入库）+ 给用户手工验收清单，这是本仓库既定惯例。
 
-## 5. 待完善清单（按优先级）
+## 5. 完善记录与遗留清单
 
-### A 类（约定好的正主）：替换 `celebration.js` 内部实现
+### A 类（2026-10-07 已完成）：替换 `celebration.js` 内部实现
 
 背景：v1 的演出是**故意做丑的占位**（全屏遮罩 + 大字 + MM:SS 倒计时 + Web Audio 三声 + 点任意处关闭），按产品决策留给后续 AI 做成真正的"全屏演出派"动画。
 
@@ -92,10 +102,10 @@ git push origin main           # 即发布 GitHub Pages（HTTPS 需 PAT 或 SSH 
 1. `js/timer.js` `sanitizeSettings`：`false`/`[]` 经 `Number()` 归 0 再钳 1（`''`/null 已修）。建议：非 string/number 一律走 fallback。
 2. `tests/timer.test.js` 测试缺口：ready 态 `setSettings` 合法路径、break 态 `reset()` 各补一条。
 3. `js/storage.js` 探测边角：无 `removeItem` 的假 backend 上探测写 `''` 会残留；`dayKey(NaN)` 得 `'NaN-NaN-NaN'` 仍入桶。建议：探测失败路径补还原、`recordPomodoro` 拒绝非有限 `completedAt`。
-4. `js/celebration.js` 占位音效：`startAt` 在 `resume()` 完成前就算好，AudioContext 恢复延迟 >50ms 时三声挤压——把排程挂进 `resume().then()`（若 A 类做了，这条自然消失）。
-5. `js/celebration.js` 占位细节无入库测试：固定文案、`role="dialog"`、逐秒刷新、点击关闭、`getRemainingMs()` 返回 `NaN` 显示 `NaN:NaN`；两条边缘无测试（隐藏 pending 时 `dismiss()` 保留 pending；playing 中隐藏再 `play` 被忽略——行为符合语义，缺测试）。
+4. 已修复：音频恢复完成后排程，新增延迟恢复与关闭取消的回归测试。
+5. 已补齐两条 pending/playing 边缘回归。默认 DOM、退出与资源清理经临时真实浏览器 harness 验收；非有限剩余时间回退 `00:00`，仍可补充入库测试。
 6. `js/notify.js`：`notify({title,body}={})` 默认参数比签名宽容（`notify()` 会弹 undefined 标题）；非函数注入归 `'unsupported'` 无测试。
-7. `js/app.js`：① footer 的 `aria-label` 整句与可见文本重复（读屏双播），改短 landmark 名即可；② 运行期 storage 降级（写失败切内存）后 UI 不补显"数据不会保存"警告（只在启动查一次 `isPersistent`）；③ 已知精度边缘：隐藏页单次定时器若在无事件窗口触发会被丢弃，退化回 250ms 轮询（interval 兜底，最坏晚 ≤250ms，可不修）。
+7. `js/app.js`：① footer 的 `aria-label` 整句与可见文本重复（读屏双播），改短 landmark 名即可；② 运行期 storage 降级提示已修复；③ 已知精度边缘：隐藏页单次定时器若在无事件窗口触发会被丢弃，退化回 250ms 轮询（interval 兜底，最坏晚 ≤250ms，可不修）。
 8. 观感项：`style.css` 的 `--accent-fg` 死变量；`#time` 的 `letter-spacing` 无 `text-indent` 补偿（`#phase-label` 有，不对称）；`#notify-hint`/`#storage-warning` 长句居中可读性差；`#break-preview` 独占一行（800px 下同行必换行，可保留现状）。
 
 ### C 类（别自作主张）
@@ -125,6 +135,6 @@ brief 的 Vision 节留了远期方向（周/月番茄曲线、疲劳时段热�
 
 ## 8. 起手式（给下一个 AI 的建议顺序）
 
-1. 读本文 → 读 spec → `node --test` 确认 27/27 绿
-2. 挑 A 类（动画替换）或 B 类零碎项开工；每完成一项跑全量测试 + 单独提交 + memlog 留痕
+1. 读本文 → 读 spec → `node --test --test-isolation=none` 确认 31/31 绿
+2. A 类动画已完成；后续按用户要求处理发布或 B 类遗留项，每完成一项跑全量测试 + 单独提交 + memlog 留痕
 3. 交付时给用户一份手工验收清单（§7 的子集），浏览器行为必须真人确认
