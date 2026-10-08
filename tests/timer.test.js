@@ -199,3 +199,7 @@ test('非法转换一律抛错', () => {
   assert.throws(() => timer.pause(), Error); // paused → pause 非 working
   assert.throws(() => timer.start(), Error); // paused → start 非 ready
 });
+test('pause at expiry leaves the deadline available for normal work completion instead of freezing zero',()=>{
+ let now=0;const timer=createTimer({settings:{workMin:1},now:()=>now});timer.start();now=60000;
+ timer.pause();assert.equal(timer.state,'working');const events=timer.tick();assert.equal(events[0].type,'work-done');assert.equal(events[0].completedAt,60000);assert.equal(timer.state,'break');
+});

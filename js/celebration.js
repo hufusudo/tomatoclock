@@ -246,7 +246,7 @@ export function createCelebration(deps = {}) {
         <h2 class="tc-title">${PHRASES[phase]}</h2>
         <div class="tc-details">${resting
           ? `<p class="tc-clock-label">休息倒计时</p><div class="tc-clock">${formatClock(remainingMs)}</div>`
-          : '<p class="tc-start-hint">点“开始下一个番茄”</p>'}</div>
+          : '<p class="tc-start-hint">点“开始”</p>'}</div>
       </div>
       <button class="tc-close" type="button" aria-label="关闭提醒">×</button>
       <p class="tc-exit-hint">点击任意处 · Esc 关闭</p>`;

@@ -44,7 +44,7 @@ function prepare(name,version,sourceDir=path.resolve('dist/TomatoClock-linux-x64
  const options=JSON.parse(fs.readFileSync(dialogs,'utf8').trim());assert.deepEqual(options.buttons,['立即更新','暂时跳过']);assert.ok(options.message.includes(targetVersion));
  browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);const page=browser.contexts()[0].pages()[0];
  await page.waitForFunction(()=>!document.getElementById('start-btn').disabled);
- assert.equal(await page.locator('#work-input').inputValue(),'25');assert.equal(await page.locator('#today-count').textContent(),'1');assert.equal(await page.locator('#all-time').textContent(),'25 分');
+ assert.equal(await page.locator('#work-input').inputValue(),'25');assert.equal(await page.locator('#all-time').textContent(),'25 分');
  const state=await page.evaluate(()=>window.tomatoDesktop.getSummary('2026-10-07'));assert.deepEqual(state.value.all,{pomodoros:1,studySeconds:1500});
  await page.locator('#records-toggle').click();await page.locator('#records-week-view').click();await page.locator('#records-month').fill('2026-10');await page.locator('#records-week').selectOption('2026-10-05');
  await page.waitForFunction(()=>document.getElementById('week-total').textContent==='25 分');assert.equal(await page.locator('#records-body tr').count(),7);

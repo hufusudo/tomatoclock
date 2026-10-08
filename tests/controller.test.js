@@ -16,6 +16,7 @@ test('completed snapshots sum 25+50, pause does not add study time and manual ga
  assert.deepEqual(s.c.getSnapshot().summary.today,{pomodoros:2,studySeconds:4500});
  assert.deepEqual(s.sounds,['work-done','break-done','work-done']);
  assert.equal(s.notices[0].body,'该休息了：短休 5 分。');
+ assert.equal(s.notices[1].body,'该开工了：点“开始”。');
 });
 test('failed save holds one retryable record, concurrent retry writes once and accounting is confirmed only',async()=>{
  const s=setup();await s.c.init();s.records.saveCompletedPomodoro=async()=>{throw new Error('disk full');};
@@ -46,4 +47,25 @@ test('old delayed daily summary cannot replace a new day after midnight',async()
  deferred.at(-1).resolve({day:'2026-10-08',today:{pomodoros:0,studySeconds:0},all:{pomodoros:2,studySeconds:4500}});await ticking;
  deferred[0].resolve({day:'2026-10-07',today:{pomodoros:99,studySeconds:999},all:{pomodoros:99,studySeconds:999}});await old;
  assert.equal(s.c.getSnapshot().summary.day,'2026-10-08');assert.equal(s.c.getSnapshot().summary.today.pomodoros,0);
+});
+test('end cancels unfinished working or paused segment without recording study time',async()=>{
+ const s=setup();await s.c.init();s.c.start();s.advance(5*60000);s.c.pause();s.advance(3600000);
+ assert.equal(await s.c.end(),true);assert.equal(s.c.getSnapshot().state,'ready');assert.equal(s.rows.size,0);assert.equal(s.c.getSnapshot().remainingMs,1500000);
+ assert.equal(await s.c.end(),false);s.c.start();s.advance(10000);await s.c.end();assert.equal(s.rows.size,0);assert.deepEqual(s.sounds,[]);
+});
+test('end settles a just-expired work deadline once before returning to ready',async()=>{
+ const s=setup();await s.c.init();s.c.start();s.advance(25*60000);await s.c.end();
+ assert.equal(s.rows.size,1);assert.equal(s.c.getSnapshot().state,'ready');assert.equal(s.c.getSnapshot().completedInRound,1);assert.equal(s.c.getSnapshot().summary.all.studySeconds,1500);
+ await s.c.end();await s.c.tick();assert.equal(s.rows.size,1);
+});
+test('ending break during a pending completed save retains the record and start guard',async()=>{
+ const s=setup();await s.c.init();let finish;s.records.saveCompletedPomodoro=row=>new Promise(resolve=>{finish=()=>{s.rows.set(row.id,row);resolve();};});
+ s.c.start();s.advance(25*60000);const saving=s.c.tick();await s.c.end();
+ assert.equal(s.c.getSnapshot().state,'ready');assert.equal(s.c.getSnapshot().pendingCount,1);assert.equal(s.c.start(),false);
+ finish();await saving;assert.equal(s.rows.size,1);assert.equal(s.c.getSnapshot().pendingCount,0);assert.equal(s.c.getSnapshot().canStart,true);
+});
+test('pause at an elapsed deadline settles work before end, keeping the original completion time',async()=>{
+ const s=setup();await s.c.init();s.c.start();s.advance(25*60000+1000);await s.c.pause();
+ assert.equal(s.c.getSnapshot().state,'break');await s.c.end();
+ assert.equal(s.rows.size,1);assert.equal([...s.rows.values()][0].completedAt,Date.parse('2026-10-07T10:25:00'));assert.equal(s.c.getSnapshot().state,'ready');
 });

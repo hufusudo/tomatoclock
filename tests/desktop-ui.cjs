@@ -15,7 +15,9 @@ async function launch(){
  app=await _electron.launch({executablePath,args:[`--ozone-platform=${platform}`,path.join(__dirname,'fixtures/electron-test-main.cjs')],chromiumSandbox:true,env:{...process.env,XDG_RUNTIME_DIR:runtime,...(wayland?{WAYLAND_DISPLAY:wayland}:{}),DBUS_SESSION_BUS_ADDRESS:process.env.DBUS_SESSION_BUS_ADDRESS??`unix:path=${runtime}/bus`,XDG_DATA_HOME:path.join(dir,'xdg'),TOMATOCLOCK_TEST_DATA_DIR:dir,TOMATOCLOCK_TEST_APP_ROOT:appRoot},timeout:20000});
  const profile=await app.evaluate(({app})=>app.getPath('userData'));assert.ok(profile.startsWith(dir+path.sep),'GUI must use its temporary profile before any test write');
  await app.evaluate(({Notification})=>{globalThis.__tcNotices={created:[],shown:[],failed:[]};const original=Notification.prototype.show;Notification.prototype.show=function(...args){const options={title:this.title,body:this.body};globalThis.__tcNotices.created.push(options);this.once('show',()=>globalThis.__tcNotices.shown.push(options.title));this.once('failed',(_event,error)=>globalThis.__tcNotices.failed.push(String(error)));return original.apply(this,args);};});
- const page=await app.firstWindow();page.on('pageerror',error=>errors.push(error.message));await page.waitForFunction(()=>!document.getElementById('start-btn').disabled,null,{polling:50});return page;
+ const page=await app.firstWindow();page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(()=>{window.__testNow=Date.parse('2026-10-07T10:00:00');Date.now=()=>window.__testNow;window.__contexts=[];const Original=window.AudioContext;window.AudioContext=function(...args){const c=new Original(...args);window.__contexts.push(c);return c;};window.AudioContext.prototype=Original.prototype;});
+ await page.reload();await page.waitForFunction(()=>!document.getElementById('start-btn').disabled,null,{polling:50});return page;
 }
 async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>globalThis.__tcNotices));await app.close();app=null;}
 (async()=>{try{
@@ -23,16 +25,25 @@ async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>
  assert.equal(await app.evaluate(({app})=>app.commandLine.hasSwitch('no-sandbox')),false);
  const prefs=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences());assert.equal(prefs.sandbox,true);assert.equal(prefs.contextIsolation,true);assert.equal(prefs.nodeIntegration,false);
  assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.ok((await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).includes("connect-src 'none'"));
- await page.addInitScript(()=>{window.__testNow=Date.parse('2026-10-07T10:00:00');Date.now=()=>window.__testNow;window.__contexts=[];const Original=window.AudioContext;window.AudioContext=function(...args){const c=new Original(...args);window.__contexts.push(c);return c;};window.AudioContext.prototype=Original.prototype;});
- await page.reload();await page.waitForFunction(()=>!document.getElementById('start-btn').disabled,null,{polling:50});
- await page.locator('#work-input').fill('1');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中',null,{polling:50});
+ await page.screenshot({path:path.join(out,packaged?'timer-ready-packaged.png':'timer-ready.png')});
+ const raised=await page.locator('#start-btn .button-face').boundingBox();await page.locator('#start-btn').hover();await page.waitForTimeout(600);const lowered=await page.locator('#start-btn .button-face').boundingBox();assert.ok(lowered.y-raised.y>4,'button face visibly lowers on hover');
+ await page.screenshot({path:path.join(out,packaged?'button-hover-packaged.png':'button-hover.png')});await page.mouse.move(5,5);
+ assert.equal(await page.locator('#records-toggle').textContent(),'统计');assert.equal(await page.locator('#start-btn').textContent(),'开始');
+ await page.locator('#settings-toggle').click();await page.waitForSelector('#settings-view:not([hidden])');await page.screenshot({path:path.join(out,packaged?'settings-packaged.png':'settings.png')});await page.locator('#work-input').fill('1');await page.locator('#timer-toggle').click();
+ await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#start-btn').textContent(),'结束');
+ await page.evaluate(()=>window.__testNow+=10000);await page.locator('#pause-btn').click();assert.equal(await page.locator('#pause-btn').textContent(),'恢复');const frozen=await page.locator('#time').textContent(),frozenRing=await page.locator('#timer-dial').getAttribute('aria-valuenow');assert.equal(frozenRing,'17');
+ await page.locator('#settings-toggle').click();assert.equal(await page.locator('#work-input').isDisabled(),true);await page.locator('#timer-toggle').click();
+ await page.evaluate(()=>window.__testNow+=3600000);await page.locator('#records-toggle').click();await page.locator('#timer-toggle').click();assert.equal(await page.locator('#time').textContent(),frozen);assert.equal(await page.locator('#timer-dial').getAttribute('aria-valuenow'),frozenRing);
+ await page.locator('#pause-btn').click();assert.equal(await page.locator('#pause-btn').textContent(),'暂停');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ assert.equal((await page.evaluate(()=>window.tomatoDesktop.getSummary('2026-10-07'))).value.all.pomodoros,0);assert.equal(await page.locator('#start-btn').textContent(),'开始');
+ await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中',null,{polling:50});
  await page.locator('#records-toggle').click();await page.waitForSelector('#records-view:not([hidden])');assert.equal(await page.locator('#phase-label').textContent(),'专注中');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].minimize());
  await page.waitForFunction(async()=>!(await window.tomatoDesktop.getVisibility()).value,null,{polling:50});
  await page.evaluate(()=>window.__testNow+=60000);await page.waitForFunction(()=>document.getElementById('today-count').textContent==='1',null,{polling:50});
  assert.equal(await page.locator('[role=dialog]').count(),0);assert.equal(await page.locator('#today-time').textContent(),'1 分');
  await page.evaluate(()=>window.__testNow+=60000);await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始',null,{polling:50});
- assert.equal(await page.locator('#start-btn').textContent(),'开始下一个番茄');assert.equal(await page.locator('[role=dialog]').count(),0);
+ assert.equal(await page.locator('#start-btn').textContent(),'开始');assert.equal(await page.locator('[role=dialog]').count(),0);
  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.restore();w.show();w.focus();});
  await page.waitForFunction(()=>document.querySelector('[role=dialog]')?.getAttribute('aria-label')==='该开工了',null,{polling:50,timeout:10000});
  assert.equal(await page.locator('.tc-clock').count(),0);await page.waitForFunction(()=>window.__contexts.some(c=>c.state==='running'),null,{polling:50});
@@ -80,8 +91,16 @@ async function close(){if(!app)return;noticeResults.push(await app.evaluate(()=>
   }finally{view.hide();host.remove();}
  });assert.equal(race,true);
  await page.locator('#records-back').click();await page.screenshot({path:path.join(out,packaged?'timer-packaged.png':'timer.png')});
+ await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ await page.locator('#settings-toggle').click();await page.locator('#work-input').fill('180');await page.locator('#timer-toggle').click();await page.waitForFunction(()=>document.getElementById('time').textContent==='180:00');
+ const fit=await page.evaluate(()=>{const dial=document.getElementById('timer-dial').getBoundingClientRect(),text=document.getElementById('time').getBoundingClientRect();return text.width<dial.width&&text.left>=dial.left&&text.right<=dial.right;});assert.equal(fit,true);
+ await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#start-btn .button-face').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(680,560));await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+ await page.locator('#settings-toggle').click();assert.equal(await page.locator('#settings-view').isVisible(),true);await page.locator('#timer-toggle').click();
+ await page.locator('#start-btn').focus();await page.keyboard.press('Space');await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#start-btn').evaluate(el=>getComputedStyle(el).outlineStyle!=='none'&&parseFloat(getComputedStyle(el).outlineWidth)>=2),true);await page.keyboard.press('Space');await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ const finalSummary=await page.evaluate(()=>window.tomatoDesktop.getSummary('2026-10-07'));assert.deepEqual(finalSummary.value.all,{pomodoros:6,studySeconds:9120});
  assert.deepEqual(errors,[]);
  await close();
- const result={packaged,displayBackend:platform,sandbox:'enabled',actualSQLite:'pass',minimizedTimer:'pass',latestReminderOnce:'pass',manualStart:'pass',unfinishedDiscarded:'pass',restartPersistence:'pass',visibleRecordsAutoRefresh:'pass',importPreviewConfirmation:'pass',dailyAndWeeklyViews:'pass',crossMonthWeek:'pass',emptyDaysZero:'pass',weeklyLiveRefresh:'pass',staleWeekResponseIgnored:'pass',weekReadErrorRecovery:'pass',audioContext:'running',pageErrors:errors,notifications:noticeResults};
+ const result={packaged,displayBackend:platform,sandbox:'enabled',actualSQLite:'pass',minimizedTimer:'pass',latestReminderOnce:'pass',manualStart:'pass',unfinishedDiscarded:'pass',restartPersistence:'pass',visibleRecordsAutoRefresh:'pass',importPreviewConfirmation:'pass',dailyAndWeeklyViews:'pass',crossMonthWeek:'pass',emptyDaysZero:'pass',weeklyLiveRefresh:'pass',staleWeekResponseIgnored:'pass',weekReadErrorRecovery:'pass',threeViewNavigation:'pass',startEndSwitch:'pass',pauseResumeSwitch:'pass',earlyEndNotRecorded:'pass',pressedButtonEffect:'pass',maximumDurationFitsDial:'pass',reducedMotion:'pass',smallWindow:'pass',keyboardActivation:'pass',audioContext:'running',pageErrors:errors,notifications:noticeResults};
  fs.writeFileSync(path.join(out,packaged?'packaged-verification.json':'verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
 }finally{if(app)await close();fs.rmSync(dir,{recursive:true,force:true});}})().catch(error=>{console.error(error);process.exitCode=1;});

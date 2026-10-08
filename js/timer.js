@@ -62,7 +62,10 @@ export function createTimer({ settings, now = () => Date.now() }) {
 
   function pause() {
     assertState('working', 'pause');
-    pausedRemainingMs = Math.max(0, deadline - now());
+    const remaining = Math.max(0, deadline - now());
+    // Keep an expired deadline intact for tick(); a zero-length pause would hide completion.
+    if (remaining === 0) return [];
+    pausedRemainingMs = remaining;
     deadline = null;
     state = 'paused';
     return [];

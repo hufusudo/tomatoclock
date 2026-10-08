@@ -19,7 +19,7 @@ async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(
   if(!arg||!['work-done','break-done'].includes(arg.phase)) throw new Error('提醒阶段不正确。');
   if(arg.phase==='work-done'&&(!['short','long'].includes(arg.kind)||!Number.isSafeInteger(arg.durationMs)||arg.durationMs<60000||arg.durationMs>6780000)) throw new Error('休息时长不正确。');
   if(!Notification.isSupported()) return {sent:false};
-  const options=arg.phase==='work-done'?{title:'番茄完成 🍅',body:`该休息了：${arg.kind==='long'?'长休':'短休'} ${formatDuration(arg.durationMs)}。`}:{title:'休息结束',body:'该开工了：点“开始下一个番茄”。'};
+  const options=arg.phase==='work-done'?{title:'番茄完成 🍅',body:`该休息了：${arg.kind==='long'?'长休':'短休'} ${formatDuration(arg.durationMs)}。`}:{title:'休息结束',body:'该开工了：点“开始”。'};
   const notice=new Notification(options);notice.on('click',()=>{if(!window.isDestroyed()){window.restore();window.show();window.focus();}});notice.show();return {sent:true};
  };
  const dispose=registerIpc({ipcMain,window,db,dialog,notify,startupError,onCloseStatus:arg=>{

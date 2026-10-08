@@ -22,6 +22,7 @@ test('window security, single instance, actual visibility and known phase notifi
  assert.equal((await notify(source(window),{phase:'work-done',kind:'short',durationMs:600000})).ok,true);
  assert.deepEqual(e.notes[0].options,{title:'番茄完成 🍅',body:'该休息了：短休 10 分。'});
  assert.equal((await notify(source(window),{phase:'bad'})).ok,false);
+ assert.equal((await notify(source(window),{phase:'break-done'})).ok,true);assert.equal(e.notes[1].options.body,'该开工了：点“开始”。');
 });
 test('close awaits renderer persistence, clean status quits without a prompt',async t=>{
  const {e,window,close}=await fixture(t);const closing=close();await settle();assert.equal(e.app.quits,0);

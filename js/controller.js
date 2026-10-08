@@ -33,9 +33,14 @@ export function createController({timer,records,notifier,celebration,now=Date.no
   try {Promise.resolve(notifier.requestPermission?.()).then(publish).catch(()=>{});}catch{ /* 提醒权限不阻断计时 */ }
   return true;
  }
- function pause(){if(timer.state==='working'){timer.pause();publish();}}
+ function pause(){if(timer.state==='working'){timer.pause();if(timer.state==='working')return tick();publish();}}
  function resume(){if(timer.state==='paused'){timer.resume();publish();}}
  function reset(){timer.reset();activeId=null;celebration.dismiss();publish();}
+ function end(){
+  if(timer.state==='ready')return Promise.resolve(false);
+  // Settle an elapsed deadline before cancelling, so a completed tomato is not discarded.
+  const settled=tick();reset();return settled.then(()=>true);
+ }
  async function tick(){
   const events=timer.tick();const breakEvent=events.find(event=>event.type==='break-started');
   let completed=false;
@@ -62,5 +67,5 @@ export function createController({timer,records,notifier,celebration,now=Date.no
  }
  async function retryPending(){requestedDay=null;await flush();}
  async function prepareClose(){if(settingsPromise)await settingsPromise;await flush();return {pendingCount:pending.length};}
- return {init,start,pause,resume,reset,tick,saveSettings,retryPending,prepareClose,getSnapshot};
+ return {init,start,pause,resume,reset,end,tick,saveSettings,retryPending,prepareClose,getSnapshot};
 }

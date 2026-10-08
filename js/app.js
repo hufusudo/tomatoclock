@@ -14,13 +14,17 @@ function render(s){
  $('phase-label').textContent=s.state==='break'?(s.segment==='long-break'?'长休':'短休'):{ready:'准备开始',working:'专注中',paused:'已暂停'}[s.state];
  $('time').textContent=formatClock(s.remainingMs);
  const durations=effectiveDurations(s.settings);
- $('break-preview').textContent=`短休 ${formatDuration(durations.shortBreakMs)} · 长休 ${formatDuration(durations.longBreakMs)}`;
+ const preview=`短休 ${formatDuration(durations.shortBreakMs)} · 长休 ${formatDuration(durations.longBreakMs)}`;$('break-preview').textContent=preview;$('clock-preview').textContent=preview;
+ const totalMs=s.segment==='short-break'?durations.shortBreakMs:s.segment==='long-break'?durations.longBreakMs:durations.workMs;
+ const progress=s.state==='ready'?0:Math.max(0,Math.min(1,1-s.remainingMs/totalMs))*100;
+ $('dial-progress').style.strokeDashoffset=(100-progress).toFixed(3);$('timer-dial').setAttribute('aria-valuenow',String(Math.round(progress)));$('timer-dial').setAttribute('aria-valuetext',`${$('phase-label').textContent}，剩余 ${formatClock(s.remainingMs)}`);$('timer-dial').dataset.phase=s.state;
  const dots=Array.from($('round-dots').querySelectorAll('.dot'));dots.forEach((dot,index)=>dot.classList.toggle('is-done',index<s.completedInRound));
  $('round-dots').setAttribute('aria-label',`第 ${s.completedInRound}/4 轮`);
- $('start-btn').disabled=!s.canStart&&!(settingsOperation&&s.state==='ready'&&s.pendingCount===0&&s.summary!==null);
- $('start-btn').textContent=s.completedInRound>0||(s.summary?.today.pomodoros??0)>0?'开始下一个番茄':'开始番茄';
- $('pause-btn').disabled=!['working','paused'].includes(s.state);$('pause-btn').textContent=s.state==='paused'?'恢复':'暂停';
+ const active=s.state!=='ready';$('start-btn').disabled=!active&&!s.canStart&&!(settingsOperation&&s.pendingCount===0&&s.summary!==null);
+ $('start-label').textContent=active?'结束':'开始';$('start-icon-path').setAttribute('d',active?'M6 6h12v12H6z':'m8 4 12 8-12 8z');
+ $('pause-btn').disabled=!['working','paused'].includes(s.state);$('pause-label').textContent=s.state==='paused'?'恢复':'暂停';$('pause-icon-path').setAttribute('d',s.state==='paused'?'m8 4 12 8-12 8z':'M8 4v16M16 4v16');
  const editable=s.state==='ready'&&!s.saving&&s.pendingCount===0&&s.summary!==null;inputs.forEach(input=>{input.disabled=!editable;});
+ $('settings-state').textContent=active?'结束当前计时后可调整时长。':s.saving?'正在保存…':s.pendingCount>0?'请先重试保存学习记录。':'修改后自动保存。';
  if(settingSignature!==JSON.stringify(s.settings))fillSettings(s.settings);
  $('today-count').textContent=String(s.summary?.today.pomodoros??0);$('today-time').textContent=formatDuration((s.summary?.today.studySeconds??0)*1000);
  if($('all-time'))$('all-time').textContent=formatDuration((s.summary?.all.studySeconds??0)*1000);
@@ -42,10 +46,11 @@ function tick(){
  operation.catch(error=>{ $('storage-warning').hidden=false;$('storage-warning').textContent=`计时处理失败：${error.message}`; });
 }
 $('start-btn').addEventListener('click',async()=>{
+ if(timer.state!=='ready'){const ended=controller.end();scheduleDeadline();await ended;return;}
  try {Promise.resolve(runtime.notifier.requestPermission?.()).catch(()=>{});}catch{}
  const operation=settingsOperation;if(operation&&!(await operation))return;controller.start();scheduleDeadline();
 });
-$('pause-btn').addEventListener('click',()=>{if(timer.state==='paused')controller.resume();else controller.pause();scheduleDeadline();});
+$('pause-btn').addEventListener('click',()=>{const operation=timer.state==='paused'?controller.resume():controller.pause();scheduleDeadline();operation?.catch(error=>{$('storage-warning').hidden=false;$('storage-warning').textContent=`计时处理失败：${error.message}`;});});
 $('reset-btn').addEventListener('click',()=>{controller.reset();scheduleDeadline();});
 for(const input of inputs)input.addEventListener('change',async()=>{
  const operation=controller.saveSettings({workMin:inputs[0].value,shortAdj:inputs[1].value,longAdj:inputs[2].value});settingsOperation=operation;render(controller.getSnapshot());
@@ -53,7 +58,12 @@ for(const input of inputs)input.addEventListener('change',async()=>{
 });
 $('retry-save-btn')?.addEventListener('click',()=>controller.retryPending());
 let importToken=null;
-const recordView=createRecordsView({root:$('records-view'),records:runtime.records,onBack(){recordView.hide();$('clock-view').hidden=false;$('records-toggle').hidden=false;},async onImport(){
+function showView(view){
+ const targets={timer:'clock-view',records:'records-view',settings:'settings-view'};
+ for(const [name,id] of Object.entries(targets)){$(id).hidden=name!==view;$(name==='records'?'records-toggle':`${name}-toggle`).setAttribute('aria-pressed',String(name===view));}
+ if(view==='records')recordView.show();else recordView.hide();
+}
+const recordView=createRecordsView({root:$('records-view'),records:runtime.records,onBack(){showView('timer');},async onImport(){
  $('import-preview').hidden=true;importToken=null;const result=await runtime.legacy.preview();if(!result)return;
  importToken=result.token;const s=result.summary;
  $('import-summary').textContent=s.dayCount===0?'文件中没有学习记录。':`${s.from} 至 ${s.to}，${s.dayCount} 天、${s.pomodoros} 个番茄，共 ${formatDuration(s.studySeconds*1000)}。`;
@@ -62,7 +72,9 @@ const recordView=createRecordsView({root:$('records-view'),records:runtime.recor
  const blob=new Blob([runtime.legacy.exportJson()],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
  link.href=url;link.download='tomatoclock-records.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }});
-$('records-toggle').addEventListener('click',()=>{$('clock-view').hidden=true;$('records-toggle').hidden=true;recordView.show();});
+$('records-toggle').addEventListener('click',()=>showView('records'));
+$('timer-toggle').addEventListener('click',()=>showView('timer'));
+$('settings-toggle').addEventListener('click',()=>showView('settings'));
 $('legacy-import-btn').hidden=!window.tomatoDesktop;$('legacy-export-btn').hidden=Boolean(window.tomatoDesktop);
 $('import-cancel').addEventListener('click',()=>{importToken=null;$('import-preview').hidden=true;});
 $('import-confirm').addEventListener('click',async()=>{
