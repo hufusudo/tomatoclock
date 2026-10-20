@@ -15,6 +15,25 @@ test('desktop adapter unwraps errors and native window visibility, cancels subsc
  assert.equal(runtime.isVisible(),true);listener(false);assert.equal(runtime.isVisible(),false);assert.ok(changes>=1);stop();assert.equal(unsubscribed,true);
  await assert.rejects(runtime.records.getSettings(),/database unavailable/);
 });
+test('desktop adapter preserves automatic-start state in the native break notification',async()=>{
+ let notification;const desktopApi={getVisibility:async()=>({ok:true,value:true}),onVisibilityChange:()=>()=>{},notifyPhase:async value=>{notification=value;return {ok:true,value:{sent:true}};}};
+ const runtime=createRuntime({desktopApi});assert.equal(await runtime.notifier.notify({phase:'break-done',autoStarted:true}),true);assert.equal(notification.phase,'break-done');assert.equal(notification.autoStarted,true);
+});
+test('runtime exposes shortcut reads and writes without dropping local records',async()=>{
+ const map=new Map(),storage=createStorage({backend:{getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)}});
+ const runtime=createRuntime({storage,notifier:{},document:{visibilityState:'visible'}});
+ await runtime.records.saveFocusShortcuts([35,null,90]);await runtime.records.saveSettings({workMin:45});
+ await runtime.records.saveCompletedPomodoro({id:'shortcut-test',completedAt:Date.parse('2026-10-07T10:00:00'),workMs:60000});
+ assert.deepEqual(await runtime.records.getFocusShortcuts(),[35,null,90]);
+ assert.deepEqual((await runtime.records.getSummary('2026-10-07')).today,{pomodoros:1,studySeconds:60});
+});
+test('desktop records unwrap persisted focus shortcut values',async()=>{
+ let saved;const desktopApi={getVisibility:async()=>({ok:true,value:true}),onVisibilityChange:()=>()=>{},getFocusShortcuts:async()=>({ok:true,value:[15,null,75]}),saveFocusShortcuts:async raw=>{saved=raw;return {ok:true,value:raw};}};
+ const runtime=createRuntime({desktopApi});
+ assert.deepEqual(await runtime.records.getFocusShortcuts(),[15,null,75]);
+ assert.deepEqual(await runtime.records.saveFocusShortcuts([30,null,null]),[30,null,null]);
+ assert.deepEqual(saved,[30,null,null]);
+});
 test('web export contains only its normalized days/settings and keeps original records',async()=>{
  const storage={isPersistent:true,load:()=>({days:{'2026-10-07':{pomodoros:2,studySeconds:4500}},settings:{workMin:50,shortAdj:0,longAdj:0}})};
  const r=createRuntime({storage,notifier:{},document:{visibilityState:'visible'}});

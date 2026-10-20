@@ -1,141 +1,11 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { createCelebration } from '../js/celebration.js';
-
-// 注入全部五个假依赖：只断言真实行为（show/playSound 的调用次数与参数），不测 DOM/Web Audio
-function setup({ visible = true, remainingMs = 60000 } = {}) {
-  const state = { visible, remainingMs };
-  const listeners = [];
-  const shows = [];
-  const sounds = [];
-  const celebration = createCelebration({
-    isVisible: () => state.visible,
-    watchVisibility: (onChange) => {
-      listeners.push(onChange);
-      return () => {};
-    },
-    getRemainingMs: () => state.remainingMs,
-    show: (args) => shows.push(args),
-    playSound: (phase) => sounds.push(phase),
-  });
-  const fireVisibility = () => [...listeners].forEach((onChange) => onChange());
-  return { celebration, state, shows, sounds, fireVisibility };
-}
-
-test('隐藏时 play 只记 pending，切回补放恰好一次', () => {
-  const s = setup({ visible: false, remainingMs: 4500 });
-  s.celebration.play('work-done');
-  assert.equal(s.shows.length, 0); // 不显示不发声
-  assert.equal(s.sounds.length, 0);
-
-  s.fireVisibility(); // 回调触发但页面仍不可见 → 不补放
-  assert.equal(s.shows.length, 0);
-  assert.equal(s.sounds.length, 0);
-
-  s.state.visible = true;
-  s.fireVisibility(); // 切回可见 → 补放恰好一次
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.sounds.length, 1);
-  assert.equal(s.shows[0].phase, 'work-done');
-  assert.equal(s.sounds[0], 'work-done');
-  assert.equal(s.shows[0].remainingMs, 4500); // getRemainingMs 在播放时读取
-  assert.equal(typeof s.shows[0].onClose, 'function');
-
-  s.fireVisibility(); // 已补放并清 pending → 再触发不重播
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.sounds.length, 1);
-});
-
-test('同一转换重复 play 只播一次', () => {
-  const s = setup({ visible: false });
-  s.celebration.play('work-done');
-  s.celebration.play('work-done');
-  s.state.visible = true;
-  s.fireVisibility();
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.sounds.length, 1);
-  assert.equal(s.shows[0].phase, 'work-done');
-});
-
-test('可见时立即播放且幂等', () => {
-  const s = setup({ visible: true });
-  s.celebration.play('break-done');
-  s.celebration.play('break-done');
-  s.celebration.play('work-done'); // 已有未 dismiss 的演出 → 一律忽略
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.sounds.length, 1);
-  assert.equal(s.shows[0].phase, 'break-done');
-  assert.equal(s.sounds[0], 'break-done');
-});
-
-test('pending 后到覆盖先到', () => {
-  const s = setup({ visible: false });
-  s.celebration.play('work-done');
-  s.celebration.play('break-done');
-  s.state.visible = true;
-  s.fireVisibility();
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.shows[0].phase, 'break-done');
-  assert.equal(s.sounds.length, 1);
-  assert.equal(s.sounds[0], 'break-done');
-});
-
-test('dismiss 后新转换可再播', () => {
-  const s = setup({ visible: true });
-  s.celebration.dismiss(); // 无演出时 no-op
-  s.celebration.play('work-done');
-  s.celebration.dismiss();
-  s.celebration.play('work-done');
-  assert.equal(s.shows.length, 2);
-  assert.equal(s.sounds.length, 2);
-});
-
-test('非法 phase 抛错', () => {
-  const s = setup({ visible: true });
-  assert.throws(() => s.celebration.play('idle'), Error);
-  assert.throws(() => s.celebration.play('WORK-DONE'), Error);
-  assert.throws(() => s.celebration.play(''), Error);
-  assert.throws(() => s.celebration.play(undefined), Error);
-  assert.equal(s.shows.length, 0);
-  assert.equal(s.sounds.length, 0);
-});
-
-test('用户点掉演出（onClose）后新转换可再播', () => {
-  const s = setup({ visible: true });
-  s.celebration.play('break-done');
-  s.shows[0].onClose();
-  s.celebration.play('break-done');
-  assert.equal(s.shows.length, 2);
-  assert.equal(s.sounds.length, 2);
-});
-
-test('无参创建不触碰 document/AudioContext（默认实现惰性）', () => {
-  assert.equal(typeof document, 'undefined'); // Node 环境即证明：import 与创建全程未碰 DOM
-  assert.equal(typeof AudioContext, 'undefined');
-  assert.doesNotThrow(() => createCelebration());
-});
-
-test('隐藏 pending 时 dismiss 保留待补放提醒', () => {
-  const s = setup({ visible: false });
-  s.celebration.play('work-done');
-  s.celebration.dismiss();
-  s.state.visible = true;
-  s.fireVisibility();
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.shows[0].phase, 'work-done');
-});
-
-test('演出未关闭时隐藏页面后再次 play 也不排队重播', () => {
-  const s = setup();
-  s.celebration.play('work-done');
-  s.state.visible = false;
-  s.celebration.play('break-done');
-  s.state.visible = true;
-  s.fireVisibility();
-  assert.equal(s.shows.length, 1);
-  assert.equal(s.sounds.length, 1);
-});
-
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {createCelebration} from '../js/celebration.js';
+function setup(visible=true){const state={visible},sounds=[],listeners=[];const c=createCelebration({isVisible:()=>state.visible,watchVisibility:cb=>listeners.push(cb),playSound:phase=>{sounds.push(phase);}});return {c,state,sounds,fire:()=>listeners.forEach(cb=>cb())};}
+test('visible phases play once and never create a visual overlay',()=>{const s=setup();s.c.play('work-done');s.c.play('work-done');s.c.play('break-done');assert.deepEqual(s.sounds,['work-done','break-done']);});
+test('hidden phases sound immediately once and never replay on restore',()=>{const s=setup(false);s.c.play('work-done');s.c.play('work-done');assert.deepEqual(s.sounds,['work-done']);s.c.play('break-done');s.c.play('break-done');assert.deepEqual(s.sounds,['work-done','break-done']);s.state.visible=true;s.fire();s.fire();assert.deepEqual(s.sounds,['work-done','break-done']);});
+test('reset cancels playing sound and lets the next completion sound in background',()=>{let stops=0;const sounds=[];const c=createCelebration({isVisible:()=>false,watchVisibility:()=>{},playSound:phase=>{sounds.push(phase);return ()=>stops++;}});c.play('work-done');c.dismiss();assert.equal(stops,1);c.play('work-done');assert.deepEqual(sounds,['work-done','work-done']);});
+test('unknown phases are rejected and audio failures do not block a transition',()=>{const s=setup();assert.throws(()=>s.c.play('idle'));const c=createCelebration({isVisible:()=>true,watchVisibility:()=>{},playSound:()=>{throw new Error('device');}});assert.doesNotThrow(()=>c.play('work-done'));});
+test('import and construction need neither DOM nor audio device',()=>{assert.equal(typeof document,'undefined');assert.doesNotThrow(()=>createCelebration());});
 // 外部音频设备在 Node 中不可用，仅替代 Web Audio 边界；执行真正的声音排程代码。
 function suspendedAudio(t) {
   const starts = [];
@@ -169,15 +39,16 @@ function suspendedAudio(t) {
     if (original) Object.defineProperty(globalThis, 'AudioContext', original);
     else delete globalThis.AudioContext;
   });
-  return { starts, resume: () => finishResume() };
+  return { starts, get resumeRequested() { return typeof finishResume === 'function'; }, resume: () => finishResume() };
 }
 
 test('挂起音频恢复完成后才从新 currentTime 排程，三声不挤压', async (t) => {
   const audio = suspendedAudio(t);
   const { createCelebration: create } = await import('../js/celebration.js?audio-resume');
-  const c = create({ isVisible: () => true, watchVisibility: () => {}, show: () => {} });
+  const c = create({ isVisible: () => false, watchVisibility: () => {} });
   c.play('work-done');
   assert.equal(audio.starts.length, 0);
+  assert.equal(audio.resumeRequested, true, 'background completion resumes the audio device immediately');
   audio.resume();
   await new Promise((resolve) => setImmediate(resolve));
   assert.ok(audio.starts.length > 0);
@@ -189,13 +60,9 @@ test('挂起音频恢复完成后才从新 currentTime 排程，三声不挤压'
 test('恢复音频前关闭演出，恢复后不补发迟到声音', async (t) => {
   const audio = suspendedAudio(t);
   const { createCelebration: create } = await import('../js/celebration.js?audio-cancel');
-  let onClose;
-  const c = create({
-    isVisible: () => true, watchVisibility: () => {},
-    show: (args) => { onClose = args.onClose; },
-  });
+  const c = create({ isVisible: () => true, watchVisibility: () => {}, show: () => {} });
   c.play('work-done');
-  onClose();
+  c.dismiss();
   audio.resume();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(audio.starts, []);

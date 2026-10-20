@@ -8,19 +8,23 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+ <div id="application-shell" class="application-shell">
   <p id="storage-warning" hidden>浏览器存储不可用，本次数据不会保存。</p>
 
   <nav class="app-nav" aria-label="应用导航"><div class="nav-capsule">
-    <button id="timer-toggle" class="nav-tab" type="button" aria-controls="clock-view" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6M12 9v4l3-3M18 5l2-2"/></svg>计时</button>
-    <button id="records-toggle" class="nav-tab" type="button" aria-controls="records-view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v17h17M8 16v-5M13 16V6M18 16v-8"/></svg>统计</button>
-    <button id="settings-toggle" class="nav-tab" type="button" aria-controls="settings-view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m9 3 1-1h4l1 1 .5 2 2 1 2-.5 2 3-.8 2 0 3 .8 2-2 3-2-.5-2 1-.5 2-1 1h-4l-1-1-.5-2-2-1-2 .5-2-3 .8-2v-3l-.8-2 2-3 2 .5 2-1z"/></svg>设置</button>
+    <span class="nav-indicator" aria-hidden="true"></span>
+    <button id="timer-toggle" class="nav-tab" type="button" aria-label="计时" title="计时" aria-controls="clock-view" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M9 2h6M12 9v4l3-3M18 5l2-2"/></svg><span class="nav-label">计时</span></button>
+    <button id="records-toggle" class="nav-tab" type="button" aria-label="统计" title="统计" aria-controls="records-view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v17h17M8 16v-5M13 16V6M18 16v-8"/></svg><span class="nav-label">统计</span></button>
+    <button id="settings-toggle" class="nav-tab" type="button" aria-label="设置" title="设置" aria-controls="settings-view" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m9 3 1-1h4l1 1 .5 2 2 1 2-.5 2 3-.8 2 0 3 .8 2-2 3-2-.5-2 1-.5 2-1 1h-4l-1-1-.5-2-2-1-2 .5-2-3 .8-2v-3l-.8-2 2-3 2 .5 2-1z"/></svg><span class="nav-label">设置</span></button>
   </div></nav>
 
   <main class="clock" id="clock-view">
     <p id="phase-label">准备开始</p>
-    <div id="timer-dial" class="timer-dial" role="progressbar" aria-label="当前时段进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-      <svg class="dial-ring" viewBox="0 0 320 320" aria-hidden="true"><circle class="dial-track" cx="160" cy="160" r="150"/><circle id="dial-progress" cx="160" cy="160" r="150" pathLength="100"/></svg>
-      <div id="time">50:00</div>
+    <div class="timer-dial">
+      <div id="timer-dial" class="timer-progress" role="progressbar" aria-label="当前时段进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><svg class="dial-ring" viewBox="0 0 320 320" aria-hidden="true"><circle class="dial-track" cx="160" cy="160" r="150"/><circle id="dial-progress" cx="160" cy="160" r="150" pathLength="100"/></svg></div>
+      <button id="time" type="button" title="点击修改工作时长" aria-label="修改工作时长，当前50分钟">50:00</button>
+      <div id="time-editor" class="time-editor" hidden><input id="dial-work-input" type="text" inputmode="numeric" maxlength="3" aria-label="工作时长（分钟）" aria-describedby="time-edit-hint" aria-invalid="false" autocomplete="off"><span aria-hidden="true">:00</span></div>
+      <p id="time-edit-hint" class="time-edit-hint" role="status" hidden>输入 1–180 分钟 · Enter 保存 · Esc 取消</p>
     </div>
     <div id="round-dots" role="img" aria-label="轮次进度">
       <span class="dot"></span>
@@ -29,6 +33,20 @@
       <span class="dot"></span>
     </div>
 
+    <div class="focus-shortcuts-area">
+      <div class="shortcut-strip"><div id="focus-shortcuts" class="focus-shortcuts" role="group" aria-label="一键开始专注" hidden>
+        <button id="focus-shortcut-1" type="button" hidden></button>
+        <button id="focus-shortcut-2" type="button" hidden></button>
+        <button id="focus-shortcut-3" type="button" hidden></button>
+      </div><button id="edit-focus-shortcuts" class="shortcut-edit-button" type="button" aria-controls="focus-shortcut-editor" aria-expanded="false">编辑快捷项</button></div>
+      <section id="focus-shortcut-editor" class="shortcut-editor" aria-label="专注快捷项" hidden>
+        <div class="shortcut-fields">
+          <div><label for="focus-shortcut-input-1">快捷项 1</label><div class="number-field"><input id="focus-shortcut-input-1" class="focus-shortcut-input" type="number" min="1" max="180" step="1" placeholder="未配置" aria-describedby="focus-shortcut-status" aria-invalid="false"><span>分钟</span></div></div>
+          <div><label for="focus-shortcut-input-2">快捷项 2</label><div class="number-field"><input id="focus-shortcut-input-2" class="focus-shortcut-input" type="number" min="1" max="180" step="1" placeholder="未配置" aria-describedby="focus-shortcut-status" aria-invalid="false"><span>分钟</span></div></div>
+          <div><label for="focus-shortcut-input-3">快捷项 3</label><div class="number-field"><input id="focus-shortcut-input-3" class="focus-shortcut-input" type="number" min="1" max="180" step="1" placeholder="未配置" aria-describedby="focus-shortcut-status" aria-invalid="false"><span>分钟</span></div></div>
+        </div><p id="focus-shortcut-status" role="status">填写 1–180 分钟，修改后自动保存；清空即可移除。</p>
+      </section>
+    </div>
     <div class="controls">
       <button id="start-btn" class="press-button" type="button"><span class="button-face"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="start-icon-path" d="m8 4 12 8-12 8z"/></svg><span id="start-label">开始</span></span></button>
       <button id="pause-btn" class="press-button" type="button" disabled><span class="button-face"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="pause-icon-path" d="M8 4v16M16 4v16"/></svg><span id="pause-label">暂停</span></span></button>
@@ -39,27 +57,51 @@
   </main>
 
   <section id="settings-view" class="settings-panel" hidden aria-labelledby="settings-title">
-    <h1 id="settings-title">设置</h1><p class="page-description">给专注和休息留出适合自己的时间。</p>
-    <div class="settings-fields">
-      <div class="setting-field"><label for="work-input">工作时长<span>每个完整番茄的专注时间</span></label><div class="number-field"><input id="work-input" type="number" min="1" max="180" step="1" value="50"><span>分钟</span></div></div>
-      <div class="setting-field"><label for="short-adj-input">短休微调<span>在工作时长 ÷ 5 的基础上调整</span></label><div class="number-field"><input id="short-adj-input" type="number" min="-5" max="5" step="1" value="0"><span>分钟</span></div></div>
-      <div class="setting-field"><label for="long-adj-input">长休微调<span>每四个番茄长休，基础时长为工作 × 0.6</span></label><div class="number-field"><input id="long-adj-input" type="number" min="-5" max="5" step="1" value="0"><span>分钟</span></div></div>
-    </div><p id="break-preview" class="settings-preview">短休 10 分 · 长休 30 分</p><p id="settings-state" class="settings-state">修改后自动保存。</p>
+    <header class="page-heading"><h1 id="settings-title">设置</h1><p class="page-description">找到自己的专注节奏。</p></header>
+    <div id="settings-orbit" class="settings-orbit" data-state="overview">
+      <span class="disc-label disc-label-work" aria-hidden="true">工作时长</span><span class="disc-label disc-label-short" aria-hidden="true">短休微调</span><span class="disc-label disc-label-long" aria-hidden="true">长休微调</span>
+      <div id="settings-disc" class="settings-disc" data-state="overview" data-setting="workMin">
+        <svg class="disc-sectors" viewBox="0 0 360 360" role="group" aria-label="选择要调整的时间">
+          <g id="settings-work-sector" class="settings-sector sector-work" role="button" tabindex="0" aria-label="工作时长" aria-disabled="false" aria-expanded="false" aria-controls="disc-editor"><path d="M180 180 44.9 102 A156 156 0 0 1 315.1 102Z"/><text id="disc-value-workMin" x="180" y="101">50</text><text class="sector-unit" x="180" y="124">分钟</text></g>
+          <g id="settings-short-sector" class="settings-sector sector-short" role="button" tabindex="0" aria-label="短休微调" aria-disabled="false" aria-expanded="false" aria-controls="disc-editor"><path d="M180 180 315.1 102 A156 156 0 0 1 180 336Z"/><text id="disc-value-shortAdj" x="258" y="230">+0</text><text class="sector-unit" x="258" y="253">分钟</text></g>
+          <g id="settings-long-sector" class="settings-sector sector-long" role="button" tabindex="0" aria-label="长休微调" aria-disabled="false" aria-expanded="false" aria-controls="disc-editor"><path d="M180 180 180 336 A156 156 0 0 1 44.9 102Z"/><text id="disc-value-longAdj" x="102" y="230">+0</text><text class="sector-unit" x="102" y="253">分钟</text></g>
+        </svg>
+        <svg id="disc-paint" class="disc-paint" viewBox="0 0 360 360" aria-hidden="true"><defs><clipPath id="disc-boundary"><circle cx="180" cy="180" r="156"/></clipPath><filter id="disc-brush" filterUnits="userSpaceOnUse" x="0" y="0" width="360" height="360"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="7" result="grain"/><feDisplacementMap in="SourceGraphic" in2="grain" scale="14" xChannelSelector="R" yChannelSelector="G"/></filter></defs><g clip-path="url(#disc-boundary)"><circle class="paint-bloom" cx="180" cy="90" r="380" filter="url(#disc-brush)"/></g></svg>
+        <form id="disc-editor" class="disc-editor" aria-labelledby="disc-editor-title" novalidate hidden>
+          <h2 id="disc-editor-title">工作时长</h2>
+          <div class="disc-number-row"><button id="disc-decrease" type="button" aria-label="减少一分钟">−</button><div class="disc-field"><label for="work-input" class="sr-only">工作分钟数</label><input id="work-input" type="number" min="1" max="180" step="1" value="50" inputmode="numeric"></div><div class="disc-field" hidden><label for="short-adj-input" class="sr-only">短休微调分钟数</label><input id="short-adj-input" type="number" min="-5" max="5" step="1" value="0" inputmode="numeric"></div><div class="disc-field" hidden><label for="long-adj-input" class="sr-only">长休微调分钟数</label><input id="long-adj-input" type="number" min="-5" max="5" step="1" value="0" inputmode="numeric"></div><button id="disc-increase" type="button" aria-label="增加一分钟">+</button></div>
+          <input id="disc-slider" class="disc-slider" type="range" min="1" max="180" value="50" step="1" aria-label="调整工作时长"><p id="disc-effect" class="disc-effect"></p>
+          <div class="disc-actions"><button id="disc-cancel" type="button">取消</button><button id="disc-save" type="submit">保存</button></div><p id="disc-error" role="alert" hidden></p>
+        </form>
+      </div>
+    </div>
+    <p id="break-preview" class="settings-preview">短休 10 分 · 长休 30 分</p><p id="settings-state" class="settings-state" role="status">选择一个扇区，调整自己的节奏。</p>
+    <div id="theme-controls" class="theme-settings"><h2>自定义主题</h2><p>编辑 custom.css，保存后重新加载。</p><div class="theme-actions"><button id="theme-open-btn" type="button">打开 custom.css</button><button id="theme-reload-btn" type="button">重新加载主题</button></div><p id="theme-status" role="status">正在读取主题…</p></div>
+    <div id="rest-image-controls" class="theme-settings"><h2>休息图片</h2><p>休息时看一张喜欢的图片，计时照常继续。</p><img class="rest-image-preview" src="assets/break-default.svg" alt="休息图片预览"><div class="image-actions"><button id="choose-rest-image-btn" type="button">选择图片</button><button id="reset-rest-image-btn" type="button">恢复默认图片</button><button id="return-rest-image-btn" type="button" hidden>返回休息图片</button></div><p id="rest-image-status" role="status">正在读取休息图片…</p></div>
   </section>
 
   <section id="records-view" class="records" hidden aria-labelledby="records-title">
-    <div class="records-heading"><h1 id="records-title">统计</h1><button id="records-back" type="button">回到计时</button></div>
-    <p class="records-description">每个完成的番茄都会留下记录。</p>
-    <div class="records-toolbar"><div class="records-mode" role="group" aria-label="统计方式"><button id="records-day-view" type="button" aria-pressed="true">按天</button><button id="records-week-view" type="button" aria-pressed="false">按周</button></div><div class="records-tools"><button id="legacy-import-btn" type="button" hidden>导入旧记录</button><button id="legacy-export-btn" type="button" hidden>导出学习记录</button></div></div>
+    <header class="page-heading"><h1 id="records-title">统计</h1><p class="records-description">把专注，慢慢积累起来。</p></header>
+    <div class="records-toolbar"><div class="records-mode" role="group" aria-label="统计方式"><button id="records-day-view" type="button" aria-pressed="true">按天</button><button id="records-week-view" type="button" aria-pressed="false">按周</button></div></div>
     <div id="records-week-filter" class="records-period" hidden><label for="records-month">月份</label><input id="records-month" type="month" min="0001-01" max="9998-12"><label for="records-week">周次</label><select id="records-week"></select></div>
-    <section id="week-summary" class="week-summary" hidden aria-labelledby="week-title"><div><h2 id="week-title"></h2><p id="week-range"></p></div><div class="week-study"><span>周总学习时长</span><strong id="week-total"></strong><span id="week-count"></span></div></section>
-    <p id="records-week-note" class="records-week-note" hidden>周一至周日，跨月按完整七天统计；第1周为包含当月1日的那一周。</p>
+    <section id="records-summary" class="records-summary" hidden aria-labelledby="records-summary-title"><h2 id="records-summary-title">这七天</h2><p id="records-summary-range"></p><div class="records-metrics"><div><strong id="records-summary-total">0 分</strong><span>学习时长</span></div><div><strong id="records-summary-count">0</strong><span>完成番茄</span></div></div></section>
+    <section id="week-summary" class="week-summary sr-only" aria-hidden="true" hidden aria-labelledby="week-title"><div><h2 id="week-title"></h2><p id="week-range"></p></div><div class="week-study"><span>周总学习时长</span><strong id="week-total"></strong><span id="week-count"></span></div></section>
+    <p id="records-week-note" class="records-week-note" hidden>周一至周日，跨月计完整七天，第1周含当月1日。</p>
     <div id="import-preview" hidden><p id="import-summary"></p><p class="import-note">同一来源、同一天的旧记录将替换；桌面版记录保留。</p><button id="import-confirm" type="button">确认导入</button><button id="import-cancel" type="button">取消</button></div>
-    <div class="records-table"><table><thead><tr><th scope="col">日期</th><th scope="col">番茄数</th><th scope="col">每日总时长</th></tr></thead><tbody id="records-body"></tbody></table></div>
+    <section id="records-chart" class="records-chart" aria-label="学习时长图表" aria-busy="false" data-kind="line">
+      <div class="chart-toolbar"><div><h2>学习轨迹</h2><p id="chart-unit">学习时长 / 分钟</p></div><div class="records-mode chart-switch" role="group" aria-label="图表类型"><button id="records-line-view" type="button" aria-pressed="true">折线</button><button id="records-bar-view" type="button" aria-pressed="false">条状</button></div></div>
+      <div class="chart-plot"><svg id="chart-svg" role="group" aria-label="学习时长图表" hidden></svg><p id="chart-message" class="chart-message">还没有完成的番茄</p></div>
+      <div class="chart-detail"><p id="chart-hint">悬停或点选，查看每日专注</p><p id="chart-tooltip" role="status" hidden></p></div>
+    </section>
+    <div class="records-table sr-only"><table><caption>学习记录明细</caption><thead><tr><th scope="col">日期</th><th scope="col">番茄数</th><th scope="col">每日总时长</th></tr></thead><tbody id="records-body"></tbody></table></div>
     <div class="records-pages"><button id="records-prev" type="button">上一页</button><p id="records-status" role="status"></p><button id="records-next" type="button">下一页</button></div>
+    <div class="records-secondary"><button id="records-back" type="button">回到计时</button><div class="records-tools"><button id="legacy-import-btn" type="button" hidden>导入旧记录</button><button id="legacy-export-btn" type="button" hidden>导出学习记录</button></div></div>
   </section>
   <button id="retry-save-btn" type="button" hidden>重试保存</button>
   <footer>今日 <span id="today-count">0</span> 个番茄 · 累计 <span id="today-time">0 分</span><span class="all-study">历史累计 <span id="all-time">0 分</span></span></footer>
+ </div>
+ <section id="rest-stage" class="rest-stage" role="region" aria-label="休息图片；点击图片或按Esc返回应用" tabindex="-1" hidden><img id="rest-photo" src="assets/break-default.svg" alt="休息图片"></section>
+ <canvas id="accordion-transition" class="accordion-transition" aria-hidden="true" hidden></canvas>
 
   <script type="module" src="js/app.js"></script>
 </body>

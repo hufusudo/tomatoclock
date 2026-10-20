@@ -59,7 +59,7 @@ test('损坏 JSON 容错', () => {
   const storage = createStorage({ backend });
 
   const state = storage.load(); // 不抛错
-  assert.deepStrictEqual(state, { days: {}, settings: DEFAULT_SETTINGS });
+  assert.deepStrictEqual(state, { days: {}, settings: DEFAULT_SETTINGS, focusShortcuts: [null, null, null] });
   assert.equal(backend.getItem(STORAGE_KEY), '{oops'); // 不强制写回
 });
 
@@ -68,7 +68,7 @@ test('形状不符回退默认', () => {
   const backend = makeBackend({ [STORAGE_KEY]: raw });
   const storage = createStorage({ backend });
 
-  assert.deepStrictEqual(storage.load(), { days: {}, settings: DEFAULT_SETTINGS });
+  assert.deepStrictEqual(storage.load(), { days: {}, settings: DEFAULT_SETTINGS, focusShortcuts: [null, null, null] });
   assert.equal(backend.getItem(STORAGE_KEY), raw); // 不强制写回
 });
 
@@ -84,6 +84,20 @@ test('设置读写与钳制', () => {
 
   const reopened = createStorage({ backend }); // 重开
   assert.deepStrictEqual(reopened.load().settings, { workMin: 180, shortAdj: -5, longAdj: 0 });
+});
+
+test('快捷项保存跨重开保留且设置与入账不会覆盖快捷项', () => {
+  const backend = makeBackend();
+  const storage = createStorage({ backend });
+  assert.deepStrictEqual(storage.getFocusShortcuts(), [null, null, null]);
+  storage.saveFocusShortcuts([25, null, 180]);
+  storage.saveSettings({ workMin: 45 });
+  storage.recordPomodoro({ completedAt: Date.parse('2026-10-06T10:00:00'), workMs: 60000 });
+  const reopened = createStorage({ backend });
+  assert.deepStrictEqual(reopened.getFocusShortcuts(), [25, null, 180]);
+  assert.deepStrictEqual(reopened.load().days['2026-10-06'], { pomodoros: 1, studySeconds: 60 });
+  assert.throws(() => reopened.saveFocusShortcuts([181]));
+  assert.deepStrictEqual(reopened.getFocusShortcuts(), [25, null, 180]);
 });
 
 test('存储不可用时内存兜底', () => {

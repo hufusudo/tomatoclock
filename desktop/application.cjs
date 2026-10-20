@@ -1,7 +1,9 @@
 const path=require('node:path');const fs=require('node:fs');const {randomUUID}=require('node:crypto');
 const {openDatabase}=require('./database.cjs');const {registerIpc,visible}=require('./ipc.cjs');
+const {createThemeService,themeConfigDir}=require('./theme.cjs');const {createRestImageService}=require('./rest-image.cjs');
+const {createFocusShortcutsService}=require('./focus-shortcuts.cjs');
 function formatDuration(ms){const sec=Math.floor(ms/1000),min=Math.floor(sec/60);return sec<3600?(sec%60===0?`${min} 分`:`${min} 分 ${sec%60} 秒`):`${Math.floor(sec/3600)} 小时 ${min%60} 分`;}
-async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(__dirname,'../index.html'),openDatabaseImpl=openDatabase,beforeOpen,onStarted}) {
+async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(__dirname,'../index.html'),openDatabaseImpl=openDatabase,beforeOpen,onStarted,configDir}) {
  const {app,BrowserWindow,ipcMain,dialog,Notification}=electron;
  if(typeof dataDir!=='string'||!path.isAbsolute(dataDir)) throw new Error('数据目录需要绝对路径。');
  if(process.platform==='linux'&&app.commandLine&&!app.commandLine.hasSwitch('ozone-platform'))app.commandLine.appendSwitch('ozone-platform','x11');
@@ -19,10 +21,14 @@ async function createDesktopApplication({electron,dataDir,htmlPath=path.resolve(
   if(!arg||!['work-done','break-done'].includes(arg.phase)) throw new Error('提醒阶段不正确。');
   if(arg.phase==='work-done'&&(!['short','long'].includes(arg.kind)||!Number.isSafeInteger(arg.durationMs)||arg.durationMs<60000||arg.durationMs>6780000)) throw new Error('休息时长不正确。');
   if(!Notification.isSupported()) return {sent:false};
-  const options=arg.phase==='work-done'?{title:'番茄完成 🍅',body:`该休息了：${arg.kind==='long'?'长休':'短休'} ${formatDuration(arg.durationMs)}。`}:{title:'休息结束',body:'该开工了：点“开始”。'};
+  const options=arg.phase==='work-done'?{title:'番茄完成 🍅',body:`该休息了：${arg.kind==='long'?'长休':'短休'} ${formatDuration(arg.durationMs)}。`}:{title:'休息结束',body:arg.autoStarted===true?'休息结束，下一番茄已自动开始。':'休息结束，请先处理学习记录保存问题。'};
   const notice=new Notification(options);notice.on('click',()=>{if(!window.isDestroyed()){window.restore();window.show();window.focus();}});notice.show();return {sent:true};
  };
- const dispose=registerIpc({ipcMain,window,db,dialog,notify,startupError,onCloseStatus:arg=>{
+ const resolvedConfigDir=configDir??themeConfigDir();
+ const theme=createThemeService({configDir:resolvedConfigDir,templatePath:path.join(path.dirname(htmlPath),'custom.css'),openFile:file=>electron.shell?electron.shell.openPath(file):Promise.resolve('系统文件编辑器不可用。')});
+ const restImage=electron.nativeImage?createRestImageService({configDir:resolvedConfigDir,dialog,window,nativeImage:electron.nativeImage}):null;
+ const focusShortcuts=createFocusShortcutsService({configDir:resolvedConfigDir});
+ const dispose=registerIpc({ipcMain,window,db,dialog,notify,theme,restImage,focusShortcuts,startupError,onCloseStatus:arg=>{
   if(pendingStatus?.id===arg.requestId){const current=pendingStatus;pendingStatus=null;clearTimeout(current.timer);current.resolve(arg.pendingCount);}
  }});
  function forceClose(){

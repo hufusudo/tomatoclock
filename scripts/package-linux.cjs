@@ -9,7 +9,7 @@ function buildPackage(){
  const runtimeDir=path.dirname(require('electron'));for(const item of fs.readdirSync(runtimeDir))copy(path.join(runtimeDir,item),path.join(out,item));
  fs.renameSync(path.join(out,'electron'),path.join(out,'TomatoClock'));fs.rmSync(path.join(out,'resources/default_app.asar'),{force:true});
  const appRoot=path.join(out,'resources/app');fs.mkdirSync(appRoot,{recursive:true});
- for(const item of ['index.html','style.css','package.json','js','desktop','assets'])copy(path.join(root,item),path.join(appRoot,item));
+ for(const item of ['index.html','style.css','custom.css','package.json','js','desktop','assets'])copy(path.join(root,item),path.join(appRoot,item));
  const copied=new Set();
  function dependency(name,from){
   const manifest=require.resolve(`${name}/package.json`,{paths:[from]});const source=path.dirname(manifest),pkg=JSON.parse(fs.readFileSync(manifest));

@@ -19,6 +19,19 @@ export function weeksForMonth(month){
  }
  return weeks;
 }
+// Daily pages follow the first recorded date, not calendar weeks or sparse record counts.
+export function dailyRecordPage({firstDay,today,offset=0}){
+ const first=date(firstDay),last=date(today);
+ if(last<first)throw invalid('最早记录日期不能晚于今天。');
+ if(!Number.isSafeInteger(offset)||offset<0||offset%7!==0)throw invalid('分页范围不正确。');
+ const totalDays=(last-first)/DAY+1,totalPages=Math.ceil(totalDays/7),startOffset=Math.min(offset,(totalPages-1)*7);
+ const days=Array.from({length:7},(_,index)=>new Date(first.getTime()+(startOffset+index)*DAY).toISOString().slice(0,10));
+ date(days[6]);
+ return {from:days[0],to:days[6],readTo:days[6]>today?today:days[6],days,today,offset:startOffset,totalDays,totalPages};
+}
+export function fillDailyPage(page,rows){
+ return summarizeWeek(page,rows).days.map(row=>row.day>page.today?{day:row.day,pomodoros:null,studySeconds:null,future:true}:row);
+}
 export function summarizeWeek(week,rows){
  if(!Array.isArray(rows))throw invalid('学习记录格式不正确。');const byDay=new Map();
  for(const row of rows){

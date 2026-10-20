@@ -1,0 +1,57 @@
+/* TomatoClock 主题模板
+ * 桌面版：设置 → 自定义主题 → 打开 custom.css。
+ * 文件保存在 XDG_CONFIG_HOME/tomatoclock/custom.css（默认 ~/.config/tomatoclock/）。
+ * 去掉需要修改的一行两侧的注释，编辑值，保存后点击“重新加载主题”。
+ * 颜色只接受 #RGB、#RGBA、#RRGGBB、#RRGGBBAA 或 transparent。
+ * 字体只使用本机已安装字体名称，可用逗号分隔回退字体。
+ * 只读取下列白名单变量；不会加载这份文件为样式表。
+ * 不支持选择器、@import、@font-face、动画、图片、URL、var()、!important。
+ * 顶部导航和开始/暂停/重置三个按钮的样式、字体与动效固定保护。
+ * 空模板沿用内置主题；升级不会覆盖你配置目录中的文件。
+ */
+:root {
+  /* 全局背景、文字、强调色和字体 */
+  /* --theme-background: #fafaf8; */
+  /* --theme-text: #20201f; */
+  /* --theme-muted: #77736b; */
+  /* --theme-accent: #b19b73; */
+  /* --theme-border: #e6e3dc; */
+  /* --theme-surface: #ffffff; */
+  /* --theme-soft: #f2eee5; */
+  /* --theme-danger: #a33c2b; */
+  /* --theme-font: "Noto Sans", "Microsoft YaHei", sans-serif; */
+  /* --theme-warning-background: #fbeeec; */
+  /* --theme-warning-border: #eccfc5; */
+
+  /* 数字、编辑状态及计时圆环（不影响三个控制按钮） */
+  /* --theme-timer-font: "Noto Sans", sans-serif; */
+  /* --theme-timer-text: #20201f; */
+  /* --theme-timer-hover: #756343; */
+  /* --theme-ring-track: #e6e3dc; */
+  /* --theme-ring-work: #b19b73; */
+  /* --theme-ring-break: #6f8779; */
+  /* 圆环线宽：0.5–12 的数值（SVG单位，不加px等单位） */
+  /* --theme-ring-track-width: 2.5; */
+  /* --theme-ring-progress-width: 3.5; */
+
+  /* 统计页：未设置时继承全局配色/字体，背景默认透明 */
+  /* --theme-records-background: transparent; */
+  /* --theme-records-text: #20201f; */
+  /* --theme-records-muted: #77736b; */
+  /* --theme-records-accent: #b19b73; */
+  /* --theme-records-border: #e6e3dc; */
+  /* --theme-records-surface: #ffffff; */
+  /* --theme-records-font: "Noto Sans", sans-serif; */
+  /* --theme-records-hover: #fffdfa; */
+  /* --theme-records-selection-background: #20201f; */
+  /* --theme-records-selection-text: #ffffff; */
+
+  /* 设置页：未设置时继承全局配色/字体，背景默认透明 */
+  /* --theme-settings-background: transparent; */
+  /* --theme-settings-text: #20201f; */
+  /* --theme-settings-muted: #77736b; */
+  /* --theme-settings-accent: #b19b73; */
+  /* --theme-settings-border: #e6e3dc; */
+  /* --theme-settings-surface: #ffffff; */
+  /* --theme-settings-font: "Noto Sans", sans-serif; */
+}

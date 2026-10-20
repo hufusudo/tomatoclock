@@ -1,6 +1,6 @@
 {
   "name": "tomatoclock",
-  "version": "0.3.3",
+  "version": "0.3.17",
   "private": true,
   "description": "Local study timer and daily learning records",
   "type": "module",
@@ -16,9 +16,15 @@
     "cleanup:preview": "node scripts/cleanup.cjs",
     "cleanup": "node scripts/cleanup.cjs --apply",
     "verify:update": "ELECTRON_RUN_AS_NODE=1 electron tests/desktop-update-ui.cjs",
-    "verify:ui": "node tests/desktop-ui.cjs"
+    "verify:ui": "node tests/desktop-ui.cjs",
+    "verify:settings": "node tests/desktop-settings-ui.cjs",
+    "verify:theme": "node tests/desktop-theme-ui.cjs",
+    "verify:rest": "node tests/desktop-rest-ui.cjs",
+    "verify:shortcuts": "node tests/desktop-shortcuts-ui.cjs"
   },
-  "dependencies": { "better-sqlite3": "13.0.3" },
+  "dependencies": {
+    "better-sqlite3": "13.0.3"
+  },
   "devDependencies": {
     "electron": "44.6.0",
     "@electron/rebuild": "4.2.1",

@@ -1,6 +1,6 @@
 const fs=require('node:fs/promises');const {randomUUID}=require('node:crypto');const {parseLegacyImport,invalid}=require('./legacy-import.cjs');
 const visible=window=>!window.isDestroyed()&&window.isVisible()&&!window.isMinimized()&&window.isFocused();
-function registerIpc({ipcMain,window,db,dialog,notify,onCloseStatus=()=>{},startupError=null}) {
+function registerIpc({ipcMain,window,db,dialog,notify,theme,restImage,focusShortcuts,onCloseStatus=()=>{},startupError=null}) {
  const channels=[];let preview=null;
  function bind(name,action){const channel=`tc:${name}`;channels.push(channel);ipcMain.handle(channel,async(event,arg)=>{
   try {
@@ -30,6 +30,12 @@ function registerIpc({ipcMain,window,db,dialog,notify,onCloseStatus=()=>{},start
   const result=requireDb().importLegacyDays(preview.days);preview=null;return result;
  });
  bind('getVisibility',()=>visible(window));
+ bind('getFocusShortcuts',()=>focusShortcuts.get());
+ bind('saveFocusShortcuts',raw=>focusShortcuts.save(raw));
+ bind('getTheme',()=>theme.read());
+ bind('openTheme',()=>theme.open());
+ for(const [channel,method] of [['getRestImage','get'],['chooseRestImage','choose'],['resetRestImage','reset']])bind(channel,()=>restImage[method]());
+ bind('finishRestImage',value=>restImage.finish(value));
  bind('notifyPhase',arg=>notify(arg));
  bind('closeStatus',arg=>{
   if(!arg||typeof arg.requestId!=='string'||!Number.isSafeInteger(arg.pendingCount)||arg.pendingCount<0) throw new Error('退出状态不正确。');

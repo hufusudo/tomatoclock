@@ -1,6 +1,7 @@
 // TomatoClock 存储：单键 localStorage 分日入账 + 设置持久化。
-// 派生值（有效短休/长休）不落盘；写入时机只有两处：recordPomodoro 与 saveSettings。
+// 派生值（有效短休/长休）不落盘；完成入账、时长设置及快捷项配置各自保留其他字段。
 import { sanitizeSettings } from './timer.js';
+import { normalizeFocusShortcuts } from './focus-shortcuts.js';
 
 export const STORAGE_KEY = 'tomatoclock:v1';
 
@@ -17,7 +18,7 @@ function isPlainObject(value) {
 }
 
 function defaultState() {
-  return { days: {}, settings: sanitizeSettings({}) };
+  return { days: {}, settings: sanitizeSettings({}), focusShortcuts: [null, null, null] };
 }
 
 // 只认 { pomodoros, studySeconds }，脏字段归 0；非对象的天整条丢弃
@@ -50,7 +51,11 @@ function parseState(raw) {
   const settings = isPlainObject(parsed.settings)
     ? sanitizeSettings(parsed.settings)
     : sanitizeSettings({});
-  return { days, settings };
+  let focusShortcuts = [null, null, null];
+  if (Object.hasOwn(parsed, 'focusShortcuts')) {
+    try { focusShortcuts = normalizeFocusShortcuts(parsed.focusShortcuts); } catch { /* ignore only the invalid optional field */ }
+  }
+  return { days, settings, focusShortcuts };
 }
 
 // localStorage 不可用时的内存兜底（同样形状）
@@ -135,6 +140,18 @@ export function createStorage({ backend } = {}) {
     return next;
   }
 
+  function getFocusShortcuts() {
+    return readState().focusShortcuts;
+  }
+
+  function saveFocusShortcuts(raw) {
+    const focusShortcuts = normalizeFocusShortcuts(raw);
+    const state = readState();
+    state.focusShortcuts = focusShortcuts;
+    writeState(state);
+    return focusShortcuts;
+  }
+
   function recordPomodoro({ completedAt, workMs }) {
     const key = dayKey(completedAt);
     const state = readState();
@@ -152,6 +169,8 @@ export function createStorage({ backend } = {}) {
     },
     load,
     saveSettings,
+    getFocusShortcuts,
+    saveFocusShortcuts,
     recordPomodoro,
   };
 }
