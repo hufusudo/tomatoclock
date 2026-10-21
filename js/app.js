@@ -5,6 +5,7 @@ import {createRecordsView} from './records-view.js';
 import {createSettingsView} from './settings-view.js';
 import {setupThemeControls} from './theme.js';
 import {createRestView,setupRestImageControls} from './rest-view.js';
+import {createFocusView} from './focus-view.js';
 const $=id=>document.getElementById(id);
 const shortcutInputs=[1,2,3].map(slot=>$(`focus-shortcut-input-${slot}`));
 const shortcutButtons=[1,2,3].map(slot=>$(`focus-shortcut-${slot}`));
@@ -12,12 +13,16 @@ const timer=createTimer({settings:{workMin:50,shortAdj:0,longAdj:0}});
 const runtime=createRuntime(window.tomatoDesktop?{desktopApi:window.tomatoDesktop}:{storage:createStorage(),notifier:createNotifier(),document});
 const celebration=createCelebration();
 const restView=createRestView({shell:$('application-shell'),stage:$('rest-stage'),canvas:$('accordion-transition'),isVisible:runtime.isVisible,watchVisibility:runtime.watchVisibility,onReturnToWork:()=>showView('timer')});
+const focusView=createFocusView({isVisible:runtime.isVisible,watchVisibility:runtime.watchVisibility,onFocus:()=>showView('timer')});
 let deadlineTimer=null,settingsOperation=null,recordsSignature='',settingsView=null;
 let editingWork=false;
 let shortcutSignature='',shortcutMessage='填写 1–180 分钟，修改后自动保存；清空即可移除。',editingShortcuts=false;
 const editHint='输入 1–180 分钟 · Enter 保存 · Esc 取消';
 const controller=createController({timer,records:runtime.records,notifier:runtime.notifier,celebration,onChange:render});
 function render(s){
+ focusView.render(s.state,()=>renderSnapshot(s));
+}
+function renderSnapshot(s){
  $('phase-label').textContent=s.state==='break'?(s.segment==='long-break'?'长休':'短休'):{ready:'准备开始',working:'专注中',paused:'已暂停'}[s.state];
  $('time').textContent=formatClock(s.remainingMs);
  if(editingWork&&!s.canStart)editingWork=false;
@@ -65,11 +70,11 @@ function tick(){
  operation.catch(error=>{ $('storage-warning').hidden=false;$('storage-warning').textContent=`计时处理失败：${error.message}`; });
 }
 $('start-btn').addEventListener('click',async()=>{
- if(timer.state!=='ready'){const ended=controller.end();scheduleDeadline();await ended;return;}
+ if(timer.state!=='ready'){const ended=focusView.run('end',()=>controller.end());scheduleDeadline();await ended;return;}
  const draft=editingWork?commitWorkEdit():null;if(editingWork)return;
  try {Promise.resolve(runtime.notifier.requestPermission?.()).catch(()=>{});}catch{}
  if(draft&&!(await draft))return;
- const operation=settingsOperation;if(operation&&!(await operation))return;controller.start();scheduleDeadline();
+ const operation=settingsOperation;if(operation&&!(await operation))return;focusView.run('start',()=>controller.start());scheduleDeadline();
 });
 $('pause-btn').addEventListener('click',()=>{const operation=timer.state==='paused'?controller.resume():controller.pause();scheduleDeadline();operation?.catch(error=>{$('storage-warning').hidden=false;$('storage-warning').textContent=`计时处理失败：${error.message}`;});});
 $('reset-btn').addEventListener('click',()=>{cancelWorkEdit();controller.reset();scheduleDeadline();});
@@ -98,7 +103,7 @@ $('edit-focus-shortcuts').addEventListener('click',()=>setShortcutEditing(!editi
 $('focus-shortcut-editor').addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setShortcutEditing(false);}});
 shortcutButtons.forEach((button,slot)=>{
  button.addEventListener('pointerdown',()=>{if(!button.disabled&&editingWork)cancelWorkEdit();});
- button.addEventListener('click',async()=>{cancelWorkEdit();await controller.startShortcut(slot);scheduleDeadline();});
+ button.addEventListener('click',async()=>{cancelWorkEdit();await focusView.run('start',()=>controller.startShortcut(slot));scheduleDeadline();});
 });
 function cancelWorkEdit(){editingWork=false;render(controller.getSnapshot());}
 function sizeWorkInput(){ $('dial-work-input').style.setProperty('--minute-digits',Math.max(1,$('dial-work-input').value.length)); }
@@ -154,5 +159,5 @@ settingsView=createSettingsView({root:$('settings-view'),getSnapshot:controller.
 render(controller.getSnapshot());controller.init();
 setupThemeControls({desktopApi:window.tomatoDesktop});
 setupRestImageControls({desktopApi:window.tomatoDesktop,view:restView});
-window.addEventListener('beforeunload',()=>{settingsView.destroy();restView.destroy();celebration.dismiss();});
+window.addEventListener('beforeunload',()=>{settingsView.destroy();focusView.destroy();restView.destroy();celebration.dismiss();});
 setInterval(tick,250);document.addEventListener('visibilitychange',tick);window.addEventListener('focus',tick);

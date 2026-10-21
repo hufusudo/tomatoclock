@@ -34,6 +34,8 @@ function registerIpc({ipcMain,window,db,dialog,notify,theme,restImage,focusShort
  bind('saveFocusShortcuts',raw=>focusShortcuts.save(raw));
  bind('getTheme',()=>theme.read());
  bind('openTheme',()=>theme.open());
+ bind('getThemeSelection',()=>theme.getSelection());
+ bind('selectTheme',id=>theme.select(id));
  for(const [channel,method] of [['getRestImage','get'],['chooseRestImage','choose'],['resetRestImage','reset']])bind(channel,()=>restImage[method]());
  bind('finishRestImage',value=>restImage.finish(value));
  bind('notifyPhase',arg=>notify(arg));

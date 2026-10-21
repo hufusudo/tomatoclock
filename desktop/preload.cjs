@@ -9,6 +9,8 @@ ipcRenderer.on('tc:prepareClose',async(_event,requestId)=>{
 });
 const api={};
 for(const name of ['getSettings','saveSettings','saveCompletedPomodoro','getSummary','listDaily','getDailyRange','getFocusShortcuts','saveFocusShortcuts','notifyPhase','getVisibility','getTheme','openTheme','getRestImage','chooseRestImage','resetRestImage','finishRestImage','previewLegacyImport','commitLegacyImport'])api[name]=call(name);
+api.getThemeSelection=()=>ipcRenderer.invoke('tc:getThemeSelection');
+api.selectTheme=id=>ipcRenderer.invoke('tc:selectTheme',id);
 api.onVisibilityChange=callback=>subscribe('tc:visibility',callback);
 api.onPrepareClose=callback=>{prepareClose=callback;return ()=>{if(prepareClose===callback)prepareClose=null;};};
 contextBridge.exposeInMainWorld('tomatoDesktop',api);

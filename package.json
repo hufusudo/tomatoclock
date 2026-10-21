@@ -1,6 +1,6 @@
 {
   "name": "tomatoclock",
-  "version": "0.3.17",
+  "version": "0.3.21",
   "private": true,
   "description": "Local study timer and daily learning records",
   "type": "module",
@@ -20,7 +20,8 @@
     "verify:settings": "node tests/desktop-settings-ui.cjs",
     "verify:theme": "node tests/desktop-theme-ui.cjs",
     "verify:rest": "node tests/desktop-rest-ui.cjs",
-    "verify:shortcuts": "node tests/desktop-shortcuts-ui.cjs"
+    "verify:shortcuts": "node tests/desktop-shortcuts-ui.cjs",
+    "verify:focus": "node tests/desktop-focus-ui.cjs"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3"

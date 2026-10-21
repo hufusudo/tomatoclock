@@ -21,6 +21,16 @@ async function launch(){
  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.show();w.focus();});await page.waitForFunction(async()=>(await window.tomatoDesktop.getVisibility()).value,null,{polling:50});return page;
 }
 async function close(){if(!app)return;try{noticeResults.push(await app.evaluate(()=>globalThis.__tcNotices));}catch{}await app.close();app=null;}
+async function assertFocusSurface(page){
+ try{await page.waitForFunction(()=>document.documentElement.dataset.focus==='active'&&['.app-nav','.focus-shortcuts-area','#round-dots','#clock-preview','footer','#reset-btn'].every(selector=>{const el=document.querySelector(selector);return el&&el.inert&&getComputedStyle(el).display==='none'&&el.getBoundingClientRect().width===0&&el.getBoundingClientRect().height===0;}),null,{timeout:450});}catch(error){const actual=await page.evaluate(()=>({focus:document.documentElement.dataset.focus,motion:document.documentElement.dataset.focusMotion,items:['.app-nav','.focus-shortcuts-area','#round-dots','#clock-preview','footer','#reset-btn'].map(selector=>{const el=document.querySelector(selector),rect=el?.getBoundingClientRect();return {selector,inert:el?.inert,display:el&&getComputedStyle(el).display,width:rect?.width,height:rect?.height};})}));throw new Error(`focus chrome did not hide within 450ms: ${JSON.stringify(actual)}`,{cause:error});}
+ const result=await page.evaluate(()=>{
+  const hidden=['.app-nav','.focus-shortcuts-area','#round-dots','#clock-preview','footer','#reset-btn'].map(selector=>{const el=document.querySelector(selector);if(!el)return {selector,missing:true};const rect=el.getBoundingClientRect();return {selector,inert:el.inert,width:rect.width,height:rect.height,display:getComputedStyle(el).display};});
+  return {focus:document.documentElement.dataset.focus,hidden,phase:document.getElementById('phase-label').textContent,start:document.getElementById('start-btn').textContent,pause:document.getElementById('pause-btn').textContent};
+ });
+ assert.equal(result.focus,'active');for(const item of result.hidden){assert.notEqual(item.missing,true,`${item.selector} exists`);assert.equal(item.inert,true,`${item.selector} is inert during focus`);assert.equal(item.width,0,`${item.selector} is removed from layout`);assert.equal(item.height,0,`${item.selector} is removed from layout`);assert.equal(item.display,'none',`${item.selector} is not rendered`);}
+ assert.equal(await page.locator('#start-btn').isVisible(),true);assert.equal(await page.locator('#pause-btn').isVisible(),true);
+ return result;
+}
 async function assertChime(page, notes){
  await page.waitForFunction(notes=>window.__chimeStarts.length===notes,notes,{polling:25,timeout:3000});
  assert.equal(await app.evaluate(async({BrowserWindow})=>{const contents=(globalThis.__tcTimerWindow??BrowserWindow.getAllWindows()[0]).webContents;const deadline=Date.now()+3000;while(Date.now()<deadline){if(contents.isCurrentlyAudible())return true;await new Promise(resolve=>setTimeout(resolve,25));}return false;}),true,'background chime produces real audio output before restoring the window');
@@ -44,9 +54,10 @@ async function assertChime(page, notes){
   await page.waitForFunction(()=>document.getElementById('storage-warning').textContent.includes('设置保存失败')&&!document.getElementById('time').disabled);assert.equal(await page.locator('#phase-label').textContent(),'准备开始');assert.equal(await page.locator('#time').textContent(),'25:00');assert.equal((await page.evaluate(()=>window.tomatoDesktop.getSettings())).value.workMin,25);
   await app.evaluate(()=>{globalThis.__tcSettingsFailure=false;});
  }
- await page.locator('#time').click();await page.locator('#dial-work-input').fill('1');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#time').textContent(),'01:00');assert.equal(await page.locator('#time').isDisabled(),true);
+ await page.locator('#time').click();await page.locator('#dial-work-input').fill('1');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');await assertFocusSurface(page);assert.equal(await page.locator('#time').textContent(),'01:00');assert.equal(await page.locator('#time').isDisabled(),true);
  await app.evaluate(()=>{globalThis.__tcSettingsDelay=0;});
- await page.locator('#pause-btn').click();assert.equal(await page.locator('#time').isDisabled(),true);await page.locator('#start-btn').click();await page.waitForFunction(()=>!document.getElementById('time').disabled);
+ await page.locator('#pause-btn').click();await assertFocusSurface(page);assert.equal(await page.locator('#pause-btn').textContent(),'恢复');assert.equal(await page.locator('#time').isDisabled(),true);await page.locator('#pause-btn').click();await page.waitForFunction(()=>document.getElementById('pause-label').textContent==='暂停');await assertFocusSurface(page);
+ await page.locator('#start-btn').click();await page.waitForFunction(()=>document.documentElement.dataset.focus==='idle'&&document.documentElement.dataset.focusMotion==='idle'&&document.getElementById('phase-label').textContent==='准备开始');
  await page.locator('#time').click();await page.locator('#dial-work-input').fill('50');await page.keyboard.press('Enter');await page.waitForFunction(()=>document.getElementById('time').textContent==='50:00'&&!document.getElementById('time').disabled);
  // A shared selection must visibly travel, while inactive labels collapse without losing accessible names.
  assert.equal(await page.locator('.nav-indicator').count(),1,'navigation has one moving selection');
@@ -70,12 +81,12 @@ async function assertChime(page, notes){
  await page.locator('#settings-toggle').click();await page.waitForSelector('#settings-view:not([hidden])');await page.screenshot({path:path.join(out,packaged?'settings-packaged.png':'settings.png')});await page.locator('#settings-work-sector').click();await page.waitForSelector('#settings-disc[data-state=editing]');await page.locator('#work-input').fill('1');await page.locator('#disc-save').click();await page.waitForSelector('#settings-disc[data-state=overview]');await page.waitForFunction(()=>document.getElementById('time').textContent==='01:00');await page.locator('#timer-toggle').click();
  await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#start-btn').textContent(),'结束');
  await page.evaluate(()=>window.__testNow+=10000);await page.locator('#pause-btn').click();assert.equal(await page.locator('#pause-btn').textContent(),'恢复');const frozen=await page.locator('#time').textContent(),frozenRing=await page.locator('#timer-dial').getAttribute('aria-valuenow');assert.equal(frozenRing,'17');
- await page.locator('#settings-toggle').click();assert.equal(await page.locator('#work-input').isDisabled(),true);await page.locator('#timer-toggle').click();
- await page.evaluate(()=>window.__testNow+=3600000);await page.locator('#records-toggle').click();await page.locator('#timer-toggle').click();assert.equal(await page.locator('#time').textContent(),frozen);assert.equal(await page.locator('#timer-dial').getAttribute('aria-valuenow'),frozenRing);
- await page.locator('#pause-btn').click();assert.equal(await page.locator('#pause-btn').textContent(),'暂停');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ await page.locator('#settings-toggle').dispatchEvent('click');assert.equal(await page.locator('#work-input').isDisabled(),true,'settings remain locked during an active focus session');await page.locator('#timer-toggle').dispatchEvent('click');
+ await page.evaluate(()=>window.__testNow+=3600000);await page.locator('#records-toggle').dispatchEvent('click');await page.locator('#timer-toggle').dispatchEvent('click');assert.equal(await page.locator('#time').textContent(),frozen);assert.equal(await page.locator('#timer-dial').getAttribute('aria-valuenow'),frozenRing);
+ await page.locator('#pause-btn').click();assert.equal(await page.locator('#pause-btn').textContent(),'暂停');await page.locator('#start-btn').click();await page.waitForFunction(()=>document.documentElement.dataset.focus==='idle'&&document.documentElement.dataset.focusMotion==='idle'&&document.getElementById('phase-label').textContent==='准备开始');
  assert.equal((await page.evaluate(()=>window.tomatoDesktop.getSummary('2026-10-07'))).value.all.pomodoros,0);assert.equal(await page.locator('#start-btn').textContent(),'开始');
  await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中',null,{polling:50});
- await page.locator('#records-toggle').click();await page.waitForSelector('#records-view:not([hidden])');assert.equal(await page.locator('#phase-label').textContent(),'专注中');
+ await page.locator('#records-toggle').dispatchEvent('click');await page.waitForSelector('#records-view:not([hidden])');assert.equal(await page.locator('#phase-label').textContent(),'专注中');
  await app.evaluate(({BrowserWindow})=>{globalThis.__tcTimerWindow=BrowserWindow.getAllWindows()[0];globalThis.__tcFocusWindow=new BrowserWindow({width:320,height:200,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});globalThis.__tcFocusWindow.show();globalThis.__tcFocusWindow.focus();});
  await page.waitForFunction(async()=>!(await window.tomatoDesktop.getVisibility()).value,null,{polling:50});
  assert.equal(await app.evaluate(()=>globalThis.__tcTimerWindow.isMinimized()),false,'work completion is tested while another window has focus');
@@ -93,7 +104,7 @@ async function assertChime(page, notes){
  await page.waitForFunction(()=>document.getElementById('accordion-transition').hidden&&document.getElementById('rest-stage').hidden,null,{polling:50,timeout:5000});
  assert.equal(await page.locator('.tc-character,.tc-confetti').count(),0);await page.waitForFunction(()=>window.__contexts.some(c=>c.state==='running'),null,{polling:50});assert.equal(await page.locator('#phase-label').textContent(),'专注中');
  await page.waitForTimeout(350);assert.equal(await page.evaluate(()=>window.__chimeStarts.length),18,'restore does not replay either completed phase');
- await page.locator('#records-toggle').click();
+ await page.locator('#records-toggle').dispatchEvent('click');
  await page.waitForFunction(()=>document.querySelector('#records-body tr td')?.textContent==='2026-10-07',null,{polling:50,timeout:2500});await page.locator('#records-back').click();
  const notes=await app.evaluate(()=>globalThis.__tcNotices);assert.deepEqual(notes.created.map(n=>n.title),['番茄完成 🍅','休息结束']);
  assert.equal(notes.created[0].body,'该休息了：短休 1 分。');assert.equal(notes.created[1].body,'休息结束，下一番茄已自动开始。');
@@ -177,7 +188,7 @@ async function assertChime(page, notes){
  await page.locator('#records-chart').screenshot({path:path.join(out,'daily-bar-chart.png')});
  await page.evaluate(()=>{window.__testNow=Date.parse('2026-10-07T10:05:00');Date.now=()=>window.__testNow;});
  await page.locator('#records-back').click();await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');
- await page.locator('#records-toggle').click();await page.locator('#records-week-view').click();await page.locator('#records-month').fill('2026-10');await page.locator('#records-week').selectOption('2026-10-05');
+ await page.locator('#records-toggle').dispatchEvent('click');await page.locator('#records-week-view').click();await page.locator('#records-month').fill('2026-10');await page.locator('#records-week').selectOption('2026-10-05');
  await page.waitForFunction(()=>document.getElementById('week-total').textContent==='1 小时 16 分');
  await page.evaluate(()=>window.__testNow+=60000);await page.waitForFunction(()=>document.getElementById('week-total').textContent==='1 小时 17 分');await page.keyboard.press('Escape');
  await page.locator('#records-day-view').click();await page.waitForFunction(()=>document.getElementById('records-status').textContent.startsWith('第 1 / 2 页'));
@@ -223,14 +234,14 @@ async function assertChime(page, notes){
   }finally{Date.now=originalNow;view.hide();viewHost.remove();}
  });assert.equal(denseChart,true);
  await page.locator('#records-back').click();await page.screenshot({path:path.join(out,packaged?'timer-packaged.png':'timer.png')});
- await page.locator('#start-btn').click();await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ await page.locator('#start-btn').click();await page.waitForFunction(()=>document.documentElement.dataset.focus==='idle'&&document.documentElement.dataset.focusMotion==='idle'&&document.getElementById('phase-label').textContent==='准备开始');
  await page.locator('#settings-toggle').click();await page.locator('#settings-work-sector').click();await page.waitForSelector('#settings-disc[data-state=editing]');await page.locator('#work-input').fill('180');await page.locator('#disc-save').click();await page.waitForSelector('#settings-disc[data-state=overview]');await page.waitForFunction(()=>document.getElementById('time').textContent==='180:00');await page.locator('#timer-toggle').click();
  const fit=await page.evaluate(()=>{const dial=document.getElementById('timer-dial').getBoundingClientRect(),text=document.getElementById('time').getBoundingClientRect();return text.width<dial.width&&text.left>=dial.left&&text.right<=dial.right;});assert.equal(fit,true);
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#start-btn .button-face').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(680,560));await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
  await page.locator('#settings-toggle').click();assert.equal(await page.locator('#settings-view').isVisible(),true);await page.locator('#timer-toggle').click();
  await page.locator('#time').click();const editFit=await page.evaluate(()=>{const dial=document.getElementById('timer-dial').getBoundingClientRect(),editor=document.getElementById('time-editor').getBoundingClientRect();return editor.left>=dial.left&&editor.right<=dial.right;});assert.equal(editFit,true,'three-digit editing fits the small dial');await page.keyboard.press('Escape');
- await page.locator('#start-btn').focus();await page.keyboard.press('Space');await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#start-btn').evaluate(el=>getComputedStyle(el).outlineStyle!=='none'&&parseFloat(getComputedStyle(el).outlineWidth)>=2),true);await page.keyboard.press('Space');await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='准备开始');
+ await page.locator('#start-btn').focus();await page.keyboard.press('Space');await page.waitForFunction(()=>document.getElementById('phase-label').textContent==='专注中');assert.equal(await page.locator('#start-btn').evaluate(el=>getComputedStyle(el).outlineStyle!=='none'&&parseFloat(getComputedStyle(el).outlineWidth)>=2),true);await page.keyboard.press('Space');await page.waitForFunction(()=>document.documentElement.dataset.focus==='idle'&&document.documentElement.dataset.focusMotion==='idle'&&document.getElementById('phase-label').textContent==='准备开始');
  const finalSummary=await page.evaluate(()=>window.tomatoDesktop.getSummary('2026-10-07'));assert.deepEqual(finalSummary.value.all,{pomodoros:6,studySeconds:9120});
  assert.deepEqual(errors,[]);
  await close();

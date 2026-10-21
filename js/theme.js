@@ -1,3 +1,5 @@
+import {BUILT_IN_THEMES} from './theme-presets.js';
+export {BUILT_IN_THEMES};
 // custom.css is a variable configuration format, never an executable stylesheet.
 const colours=['background','text','muted','accent','border','surface','soft','danger','timer-text','timer-hover','ring-track','ring-work','ring-break','warning-background','warning-border',...['records','settings'].flatMap(page=>['background','text','muted','accent','border','surface'].map(key=>`${page}-${key}`)),'records-hover','records-selection-background','records-selection-text'];
 export const THEME_VARIABLES=Object.freeze(Object.fromEntries([...colours.map(name=>[`--theme-${name}`,'colour']),...['font','timer-font','records-font','settings-font'].map(name=>[`--theme-${name}`,'font']),...['ring-track-width','ring-progress-width'].map(name=>[`--theme-${name}`,'ringWidth'])]));
@@ -27,13 +29,44 @@ export function applyTheme(root,values){
  for(const name of Object.keys(THEME_VARIABLES))root.style.removeProperty(name);
  for(const [name,value] of Object.entries(values))root.style.setProperty(name,value);
 }
+export function applyBuiltInTheme(root,id){
+ const preset=BUILT_IN_THEMES.find(theme=>theme.id===id);
+ if(!preset)throw new Error('未知的内置主题。');
+ applyTheme(root,preset.values);
+ if(id==='default')delete root.dataset.theme;else root.dataset.theme=id;
+}
 export function setupThemeControls({desktopApi,root=document.documentElement,section=document.getElementById('theme-controls')}){
  if(!desktopApi){section.hidden=true;return;}
- const status=section.querySelector('#theme-status'),reload=section.querySelector('#theme-reload-btn'),open=section.querySelector('#theme-open-btn');let revision=0;
- async function load(){const request=++revision;reload.disabled=true;try{
-  const result=await desktopApi.getTheme();if(request!==revision)return;if(!result.ok)throw new Error(result.error?.message??'无法读取主题文件。');
-  const {values,warnings}=parseTheme(result.value.css);applyTheme(root,values);status.textContent=(result.value.exists?'主题已加载。':'使用默认主题，点击“打开 custom.css”创建主题文件。')+(warnings.length?` 忽略未开放变量：${warnings.join('、')}。`:'');
- }catch(error){if(request===revision)status.textContent=`主题未应用：${error.message} 保留当前主题。`;}finally{if(request===revision)reload.disabled=false;}}
- reload.addEventListener('click',load);open.addEventListener('click',async()=>{open.disabled=true;try{const result=await desktopApi.openTheme();if(!result.ok)throw new Error(result.error?.message??'无法打开主题文件。');status.textContent=`主题文件：${result.value.filePath}。保存后点击“重新加载主题”。`;}catch(error){status.textContent=error.message;}finally{open.disabled=false;}});
+ const status=section.querySelector('#theme-status'),reload=section.querySelector('#theme-reload-btn'),open=section.querySelector('#theme-open-btn'),choices=section.querySelector('#theme-choices');
+ let revision=0,selected='default';
+ const presets=[...BUILT_IN_THEMES,{id:'custom',name:'自定义主题',description:'使用你保存的 custom.css'}];
+ for(const preset of presets){
+  const button=section.ownerDocument.createElement('button');button.type='button';button.id=`theme-${preset.id}`;button.className='theme-choice';button.setAttribute('aria-pressed',String(preset.id===selected));
+  const sample=section.ownerDocument.createElement('span');sample.className=`theme-sample sample-${preset.id}`;sample.setAttribute('aria-hidden','true');sample.textContent=preset.id==='custom'?'Aa':'25:00';
+  const name=section.ownerDocument.createElement('strong');name.textContent=preset.name;
+  const description=section.ownerDocument.createElement('span');description.className='theme-description';description.textContent=preset.description;
+  const mark=section.ownerDocument.createElement('span');mark.className='theme-selected';mark.setAttribute('aria-hidden','true');mark.textContent='已选';
+  button.append(sample,name,description,mark);button.addEventListener('click',()=>select(preset.id));choices.append(button);
+ }
+ const buttons=[...choices.querySelectorAll('button')];
+ function busy(value){for(const button of [...buttons,reload,open])button.disabled=value;section.setAttribute('aria-busy',String(value));}
+ function mark(id){selected=id;for(const button of buttons)button.setAttribute('aria-pressed',String(button.id===`theme-${id}`));}
+ function unwrap(result){if(!result.ok)throw new Error(result.error?.message??'无法读取主题配置。');return result.value;}
+ async function custom(){const value=unwrap(await desktopApi.getTheme());return {...parseTheme(value.css),exists:value.exists};}
+ function applyCustom(value){applyTheme(root,value.values);delete root.dataset.theme;mark('custom');status.textContent='自定义主题已加载。'+(value.warnings.length?` 忽略未开放变量：${value.warnings.join('、')}。`:'');}
+ async function select(id){const request=++revision;busy(true);try{
+  const value=id==='custom'?await custom():null;
+  if(request!==revision)return;
+  unwrap(await desktopApi.selectTheme(id));if(request!==revision)return;
+  if(value)applyCustom(value);else{applyBuiltInTheme(root,id);mark(id);status.textContent=`已使用${presets.find(p=>p.id===id).name}，下次打开会保留。`;}
+ }catch(error){if(request===revision)status.textContent=`主题未应用：${error.message} 保留当前主题。`;}finally{if(request===revision)busy(false);}}
+ async function load(){const request=++revision;busy(true);try{
+  const {id}=unwrap(await desktopApi.getThemeSelection());if(request!==revision)return;
+  if(id&&id!=='custom'){applyBuiltInTheme(root,id);mark(id);status.textContent=`当前主题：${presets.find(p=>p.id===id).name}。`;return;}
+  const value=await custom();if(request!==revision)return;
+  if(id==='custom'||value.exists)applyCustom(value);else{applyBuiltInTheme(root,'default');mark('default');status.textContent='当前使用原版暖白，可选择下方主题。';}
+ }catch(error){if(request===revision)status.textContent=`主题未应用：${error.message} 保留当前主题。`;}finally{if(request===revision)busy(false);}}
+ reload.addEventListener('click',()=>select('custom'));
+ open.addEventListener('click',async()=>{open.disabled=true;try{const result=unwrap(await desktopApi.openTheme());status.textContent=`主题文件：${result.filePath}。保存后点击“重新加载主题”。`;}catch(error){status.textContent=error.message;}finally{open.disabled=false;}});
  return load();
 }

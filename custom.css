@@ -1,5 +1,5 @@
 /* TomatoClock 主题模板
- * 桌面版：设置 → 自定义主题 → 打开 custom.css。
+ * 桌面版：设置 → 外观主题 → 编辑自定义主题文件 → 打开 custom.css。
  * 文件保存在 XDG_CONFIG_HOME/tomatoclock/custom.css（默认 ~/.config/tomatoclock/）。
  * 去掉需要修改的一行两侧的注释，编辑值，保存后点击“重新加载主题”。
  * 颜色只接受 #RGB、#RGBA、#RRGGBB、#RRGGBBAA 或 transparent。
